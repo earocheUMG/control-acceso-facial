@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Variables de entorno
+.env
+
+# Datos biométricos
+data/faces/
+
+# Archivos temporales
+data/temp/
+
+# Modelos de IA
+models/mobilefacenet/*.onnx
+models/mobilefacenet/*.pth
+models/mobilefacenet/*.pt
+
+# Frontend
+node_modules/
+frontend/node_modules/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Sistema
+.DS_Store
