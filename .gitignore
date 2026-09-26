@@ -32,3 +32,9 @@ build/
 
 # Sistema
 .DS_Store
+
+# Datos faciales alineados
+data/faces_aligned/
+
+# Plantillas biométricas
+data/templates/
