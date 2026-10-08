@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.routes.health import (
     router as health_router
@@ -16,6 +17,14 @@ from backend.app.routes.dashboard import (
     router as dashboard_router
 )
 
+from backend.app.routes.viviendas import (
+    router as viviendas_router
+)
+
+
+# =============================================
+# APLICACION FASTAPI
+# =============================================
 
 app = FastAPI(
     title="Sistema de Control de Acceso Facial",
@@ -25,6 +34,22 @@ app = FastAPI(
         "reconocimiento facial."
     ),
     version="1.0.0"
+)
+
+
+# =============================================
+# CORS
+# =============================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -48,9 +73,13 @@ app.include_router(
     dashboard_router
 )
 
+app.include_router(
+    viviendas_router
+)
+
 
 # =============================================
-# ROOT
+# ENDPOINT RAIZ
 # =============================================
 
 @app.get("/")

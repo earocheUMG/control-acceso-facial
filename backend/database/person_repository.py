@@ -146,3 +146,138 @@ def get_person_by_id(
             )
 
             return cursor.fetchone()
+
+
+def create_person(
+    nombre_completo,
+    tipo,
+    email=None,
+    telefono=None,
+    vivienda_id=None,
+    es_responsable_notificacion=False
+):
+    """
+    Crea una persona.
+
+    La biometria queda pendiente
+    hasta realizar el enrolamiento facial.
+    """
+
+    with get_connection() as connection:
+
+        with connection.cursor() as cursor:
+
+            # =====================================
+            # VALIDAR VIVIENDA
+            # =====================================
+
+            if vivienda_id is not None:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        id,
+                        codigo
+                    FROM viviendas
+                    WHERE id = %s
+                      AND activa = TRUE;
+                    """,
+                    (vivienda_id,)
+                )
+
+                vivienda = (
+                    cursor.fetchone()
+                )
+
+                if not vivienda:
+
+                    raise ValueError(
+                        "La vivienda indicada "
+                        "no existe o está inactiva."
+                    )
+
+            # =====================================
+            # CREAR PERSONA
+            # =====================================
+
+            cursor.execute(
+                """
+                INSERT INTO personas (
+                    codigo_biometrico,
+                    nombre_completo,
+                    tipo,
+                    email,
+                    telefono,
+                    activo
+                )
+                VALUES (
+                    NULL,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    TRUE
+                )
+                RETURNING
+                    id,
+                    codigo_biometrico,
+                    nombre_completo,
+                    tipo,
+                    email,
+                    telefono,
+                    activo,
+                    creado_en;
+                """,
+                (
+                    nombre_completo,
+                    tipo,
+                    email,
+                    telefono
+                )
+            )
+
+            person = (
+                cursor.fetchone()
+            )
+
+            # =====================================
+            # VINCULAR CON VIVIENDA
+            # =====================================
+
+            if vivienda_id is not None:
+
+                relacion = (
+                    "TRABAJADOR"
+                    if tipo == "TRABAJADOR"
+                    else "RESIDENTE"
+                )
+
+                cursor.execute(
+                    """
+                    INSERT INTO persona_vivienda (
+                        persona_id,
+                        vivienda_id,
+                        relacion,
+                        es_responsable_notificacion,
+                        activo
+                    )
+                    VALUES (
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        TRUE
+                    );
+                    """,
+                    (
+                        person["id"],
+                        vivienda_id,
+                        relacion,
+                        es_responsable_notificacion
+                    )
+                )
+
+            connection.commit()
+
+            return person
+        
