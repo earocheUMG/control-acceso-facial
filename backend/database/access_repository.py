@@ -85,7 +85,8 @@ def register_access(
     resultado,
     similitud,
     puerta_abierta,
-    motivo=None
+    motivo=None,
+    captura_path=None
 ):
 
     query = """
@@ -95,9 +96,11 @@ def register_access(
             resultado,
             similitud,
             puerta_abierta,
-            motivo
+            motivo,
+            captura_path
         )
         VALUES (
+            %s,
             %s,
             %s,
             %s,
@@ -122,7 +125,8 @@ def register_access(
                     resultado,
                     similitud,
                     puerta_abierta,
-                    motivo
+                    motivo,
+                    captura_path
                 )
             )
 

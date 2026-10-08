@@ -38,3 +38,6 @@ data/faces_aligned/
 
 # Plantillas biométricas
 data/templates/
+
+#evidencias
+data/access_evidence/

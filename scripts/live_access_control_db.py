@@ -1,11 +1,14 @@
 import sys
-from pathlib import Path
+import os
 import time
+from pathlib import Path
+from datetime import datetime
 from collections import defaultdict
 
 import cv2
 import numpy as np
 import onnxruntime as ort
+from dotenv import load_dotenv
 
 
 # =============================================
@@ -14,16 +17,27 @@ import onnxruntime as ort
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-sys.path.insert(
-    0,
-    str(ROOT_DIR)
-)
+sys.path.insert(0, str(ROOT_DIR))
+
+load_dotenv(ROOT_DIR / ".env")
 
 
 from backend.database.access_repository import (
     get_active_people,
     get_access_point,
-    register_access
+    register_access,
+)
+
+from backend.database.notification_repository import (
+    get_notification_recipients,
+    create_notification,
+    mark_notification_sent,
+    mark_notification_error,
+)
+
+from backend.services.email_service import (
+    send_authorized_access_email,
+    send_security_alert_email,
 )
 
 
@@ -47,13 +61,27 @@ MOBILEFACENET_MODEL = (
     / "w600k_mbf.onnx"
 )
 
+EVIDENCE_DIR = (
+    ROOT_DIR
+    / "data"
+    / "access_evidence"
+)
+
+SECURITY_EMAIL = os.getenv(
+    "SECURITY_EMAIL"
+)
+
 # Umbral experimental
 THRESHOLD = 0.45
 
-# Frames consecutivos necesarios
+# Frames necesarios para confirmar identidad
 CONFIRMATION_FRAMES = 5
 
-# Segundos que permanece abierta la puerta
+# Frames ausente antes de permitir
+# un nuevo evento
+REARM_MISSING_FRAMES = 15
+
+# Tiempo visual de puerta abierta
 DOOR_OPEN_TIME = 3
 
 
@@ -69,12 +97,12 @@ REFERENCE_POINTS = np.array(
         [41.5493, 92.3655],
         [70.7299, 92.2041],
     ],
-    dtype=np.float32
+    dtype=np.float32,
 )
 
 
 # =============================================
-# CARGAR PERSONAS DESDE POSTGRESQL
+# CARGAR PERSONAS
 # =============================================
 
 def load_people():
@@ -86,9 +114,7 @@ def load_people():
 
     for person in db_people:
 
-        code = person[
-            "codigo_biometrico"
-        ]
+        code = person["codigo_biometrico"]
 
         template_path = (
             ROOT_DIR
@@ -129,7 +155,6 @@ def load_people():
         )
 
         templates[code] = template
-
         people[code] = person
 
     return templates, people
@@ -141,51 +166,47 @@ def load_people():
 
 def align_face(
     frame,
-    face
+    face,
 ):
 
-    landmarks = face[
-        4:14
-    ].reshape(
-        (5, 2)
-    ).astype(
-        np.float32
+    landmarks = (
+        face[4:14]
+        .reshape((5, 2))
+        .astype(np.float32)
     )
 
     matrix, _ = (
         cv2.estimateAffinePartial2D(
             landmarks,
             REFERENCE_POINTS,
-            method=cv2.LMEDS
+            method=cv2.LMEDS,
         )
     )
 
     if matrix is None:
         return None
 
-    aligned = cv2.warpAffine(
+    return cv2.warpAffine(
         frame,
         matrix,
         (112, 112),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0)
+        borderValue=(0, 0, 0),
     )
-
-    return aligned
 
 
 # =============================================
-# PREPROCESAMIENTO MOBILEFACENET
+# PREPROCESAMIENTO
 # =============================================
 
 def preprocess_face(
-    image
+    image,
 ):
 
     image = cv2.cvtColor(
         image,
-        cv2.COLOR_BGR2RGB
+        cv2.COLOR_BGR2RGB,
     )
 
     image = image.astype(
@@ -198,12 +219,12 @@ def preprocess_face(
 
     image = np.transpose(
         image,
-        (2, 0, 1)
+        (2, 0, 1),
     )
 
     image = np.expand_dims(
         image,
-        axis=0
+        axis=0,
     )
 
     return image
@@ -215,7 +236,7 @@ def preprocess_face(
 
 def get_embedding(
     session,
-    face
+    face,
 ):
 
     input_info = (
@@ -226,15 +247,17 @@ def get_embedding(
         session.get_outputs()[0]
     )
 
-    processed = preprocess_face(
-        face
+    processed = (
+        preprocess_face(
+            face
+        )
     )
 
     result = session.run(
         [output_info.name],
         {
             input_info.name: processed
-        }
+        },
     )
 
     embedding = (
@@ -250,9 +273,7 @@ def get_embedding(
     if norm == 0:
         return None
 
-    return (
-        embedding / norm
-    )
+    return embedding / norm
 
 
 # =============================================
@@ -261,11 +282,10 @@ def get_embedding(
 
 def identify_person(
     embedding,
-    templates
+    templates,
 ):
 
     best_code = None
-
     best_similarity = -1.0
 
     for code, template in (
@@ -275,7 +295,7 @@ def identify_person(
         similarity = float(
             np.dot(
                 embedding,
-                template
+                template,
             )
         )
 
@@ -297,13 +317,290 @@ def identify_person(
 
         return (
             best_code,
-            best_similarity
+            best_similarity,
         )
 
     return (
         "DESCONOCIDO",
-        best_similarity
+        best_similarity,
     )
+
+
+# =============================================
+# GUARDAR EVIDENCIA
+# =============================================
+
+def save_unknown_evidence(
+    aligned_face,
+):
+
+    EVIDENCE_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    timestamp = (
+        datetime.now()
+        .strftime(
+            "%Y%m%d_%H%M%S_%f"
+        )
+    )
+
+    filename = (
+        f"unknown_{timestamp}.jpg"
+    )
+
+    full_path = (
+        EVIDENCE_DIR
+        / filename
+    )
+
+    saved = cv2.imwrite(
+        str(full_path),
+        aligned_face,
+    )
+
+    if not saved:
+
+        print(
+            "ADVERTENCIA: "
+            "No se pudo guardar la evidencia."
+        )
+
+        return None
+
+    return str(
+        full_path.relative_to(
+            ROOT_DIR
+        )
+    )
+
+
+# =============================================
+# FORMATEAR FECHA
+# =============================================
+
+def format_access_date(
+    access_date,
+):
+
+    try:
+
+        return access_date.strftime(
+            "%d/%m/%Y %H:%M:%S"
+        )
+
+    except Exception:
+
+        return str(
+            access_date
+        )
+
+
+# =============================================
+# NOTIFICAR ACCESO AUTORIZADO
+# =============================================
+
+def notify_authorized_access(
+    access,
+    person,
+    access_point,
+):
+
+    recipients = (
+        get_notification_recipients(
+            person["id"]
+        )
+    )
+
+    if not recipients:
+
+        print(
+            "ADVERTENCIA: "
+            "No existen responsables "
+            "de notificacion con correo "
+            "para esta vivienda."
+        )
+
+        return
+
+    access_date = (
+        format_access_date(
+            access["fecha_hora"]
+        )
+    )
+
+    # Evita enviar dos veces
+    # al mismo correo
+    processed_emails = set()
+
+    for recipient in recipients:
+
+        email = recipient[
+            "email"
+        ]
+
+        if not email:
+            continue
+
+        if email in processed_emails:
+            continue
+
+        processed_emails.add(
+            email
+        )
+
+        notification = None
+
+        try:
+
+            notification = (
+                create_notification(
+                    access_id=access["id"],
+                    recipient_email=email,
+                    notification_type="INGRESO",
+                )
+            )
+
+            send_authorized_access_email(
+                recipient=email,
+                visitor_name=person[
+                    "nombre_completo"
+                ],
+                visitor_type=person[
+                    "tipo"
+                ],
+                house=recipient[
+                    "vivienda"
+                ],
+                access_point=access_point[
+                    "nombre"
+                ],
+                access_date=access_date,
+            )
+
+            mark_notification_sent(
+                notification["id"]
+            )
+
+            print(
+                f"Correo de ingreso enviado a: "
+                f"{email}"
+            )
+
+        except Exception as error:
+
+            print(
+                f"ERROR enviando correo "
+                f"de ingreso a {email}:"
+            )
+
+            print(error)
+
+            if notification:
+
+                try:
+
+                    mark_notification_error(
+                        notification["id"],
+                        str(error),
+                    )
+
+                except Exception as db_error:
+
+                    print(
+                        "ERROR actualizando "
+                        "notificacion:"
+                    )
+
+                    print(db_error)
+
+
+# =============================================
+# NOTIFICAR ALERTA A SEGURIDAD
+# =============================================
+
+def notify_security_alert(
+    access,
+    access_point,
+    similarity,
+    evidence_path,
+):
+
+    if not SECURITY_EMAIL:
+
+        print(
+            "ADVERTENCIA: "
+            "SECURITY_EMAIL no configurado."
+        )
+
+        return
+
+    notification = None
+
+    access_date = (
+        format_access_date(
+            access["fecha_hora"]
+        )
+    )
+
+    try:
+
+        notification = (
+            create_notification(
+                access_id=access["id"],
+                recipient_email=SECURITY_EMAIL,
+                notification_type=(
+                    "ALERTA_SEGURIDAD"
+                ),
+            )
+        )
+
+        send_security_alert_email(
+            recipient=SECURITY_EMAIL,
+            access_point=access_point[
+                "nombre"
+            ],
+            similarity=similarity,
+            access_date=access_date,
+            evidence_path=evidence_path,
+        )
+
+        mark_notification_sent(
+            notification["id"]
+        )
+
+        print(
+            "Alerta de seguridad "
+            f"enviada a: {SECURITY_EMAIL}"
+        )
+
+    except Exception as error:
+
+        print(
+            "ERROR enviando alerta "
+            "de seguridad:"
+        )
+
+        print(error)
+
+        if notification:
+
+            try:
+
+                mark_notification_error(
+                    notification["id"],
+                    str(error),
+                )
+
+            except Exception as db_error:
+
+                print(
+                    "ERROR actualizando "
+                    "notificacion:"
+                )
+
+                print(db_error)
 
 
 # =============================================
@@ -325,7 +622,7 @@ def main():
     )
 
     # =========================================
-    # CARGAR PERSONAS
+    # PERSONAS
     # =========================================
 
     templates, people = (
@@ -336,7 +633,8 @@ def main():
 
         print(
             "ERROR: "
-            "No existen personas biometricas activas."
+            "No existen personas "
+            "biometricas activas."
         )
 
         return
@@ -389,6 +687,11 @@ def main():
         f"{access_point['id']}"
     )
 
+    print(
+        f"Correo seguridad: "
+        f"{SECURITY_EMAIL}"
+    )
+
     # =========================================
     # MOBILEFACENET
     # =========================================
@@ -400,7 +703,7 @@ def main():
             ),
             providers=[
                 "CPUExecutionProvider"
-            ]
+            ],
         )
     )
 
@@ -449,36 +752,41 @@ def main():
             (width, height),
             score_threshold=0.8,
             nms_threshold=0.3,
-            top_k=5000
+            top_k=5000,
         )
     )
 
-    # Cantidad de frames consecutivos
     confirmation_counter = (
         defaultdict(int)
     )
 
-    # Indica si ya generamos el evento
-    # mientras la persona sigue en cámara
     access_registered = (
         defaultdict(
             lambda: False
         )
     )
 
-    # Tiempo hasta el cual mostramos
-    # la puerta abierta
+    missing_counter = (
+        defaultdict(int)
+    )
+
     door_open_until = 0
 
     print("")
 
     print(
-        f"Umbral: {THRESHOLD}"
+        f"Umbral: "
+        f"{THRESHOLD}"
     )
 
     print(
         f"Confirmacion: "
         f"{CONFIRMATION_FRAMES} frames"
+    )
+
+    print(
+        f"Tolerancia ausencia: "
+        f"{REARM_MISSING_FRAMES} frames"
     )
 
     print("")
@@ -488,7 +796,7 @@ def main():
     )
 
     # =========================================
-    # LOOP PRINCIPAL
+    # LOOP
     # =========================================
 
     while True:
@@ -514,23 +822,19 @@ def main():
             )
         )
 
-        # Identidades presentes
-        # actualmente en cámara
         visible_ids = set()
 
         # =====================================
-        # PROCESAR ROSTROS
+        # ROSTROS
         # =====================================
 
         if faces is not None:
 
             for face in faces:
 
-                aligned = (
-                    align_face(
-                        frame.copy(),
-                        face
-                    )
+                aligned = align_face(
+                    frame.copy(),
+                    face,
                 )
 
                 if aligned is None:
@@ -539,7 +843,7 @@ def main():
                 embedding = (
                     get_embedding(
                         recognition_session,
-                        aligned
+                        aligned,
                     )
                 )
 
@@ -549,7 +853,7 @@ def main():
                 code, similarity = (
                     identify_person(
                         embedding,
-                        templates
+                        templates,
                     )
                 )
 
@@ -557,15 +861,17 @@ def main():
                     code
                 )
 
-                # Aumentar contador
-                # hasta un máximo de 5
+                missing_counter[
+                    code
+                ] = 0
+
                 confirmation_counter[
                     code
                 ] = min(
                     confirmation_counter[
                         code
                     ] + 1,
-                    CONFIRMATION_FRAMES
+                    CONFIRMATION_FRAMES,
                 )
 
                 x, y, w, h = (
@@ -573,9 +879,9 @@ def main():
                     .astype(int)
                 )
 
-                # =================================
-                # PERSONA CONOCIDA
-                # =================================
+                # =============================
+                # CONOCIDO
+                # =============================
 
                 if (
                     code
@@ -602,7 +908,7 @@ def main():
                     color = (
                         0,
                         255,
-                        0
+                        0,
                     )
 
                     cv2.rectangle(
@@ -610,7 +916,7 @@ def main():
                         (x, y),
                         (x + w, y + h),
                         color,
-                        2
+                        2,
                     )
 
                     cv2.putText(
@@ -620,7 +926,7 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.65,
                         color,
-                        2
+                        2,
                     )
 
                     cv2.putText(
@@ -633,7 +939,7 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.55,
                         color,
-                        2
+                        2,
                     )
 
                     cv2.putText(
@@ -650,19 +956,19 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.55,
                         color,
-                        2
+                        2,
                     )
 
-                # =================================
-                # PERSONA DESCONOCIDA
-                # =================================
+                # =============================
+                # DESCONOCIDO
+                # =============================
 
                 else:
 
                     color = (
                         0,
                         0,
-                        255
+                        255,
                     )
 
                     cv2.rectangle(
@@ -670,7 +976,7 @@ def main():
                         (x, y),
                         (x + w, y + h),
                         color,
-                        2
+                        2,
                     )
 
                     cv2.putText(
@@ -680,7 +986,7 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.65,
                         color,
-                        2
+                        2,
                     )
 
                     cv2.putText(
@@ -697,12 +1003,12 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.55,
                         color,
-                        2
+                        2,
                     )
 
-                # =================================
-                # IDENTIDAD CONFIRMADA
-                # =================================
+                # =============================
+                # CONFIRMACION
+                # =============================
 
                 if (
                     confirmation_counter[
@@ -711,8 +1017,6 @@ def main():
                     >= CONFIRMATION_FRAMES
                 ):
 
-                    # Solo registrar una vez
-                    # mientras siga visible
                     if not access_registered[
                         code
                     ]:
@@ -725,9 +1029,9 @@ def main():
                             time.time()
                         )
 
-                        # =========================
-                        # ACCESO AUTORIZADO
-                        # =========================
+                        # =====================
+                        # AUTORIZADO
+                        # =====================
 
                         if (
                             code
@@ -751,7 +1055,8 @@ def main():
                                         resultado="AUTORIZADO",
                                         similitud=similarity,
                                         puerta_abierta=True,
-                                        motivo=None
+                                        motivo=None,
+                                        captura_path=None,
                                     )
                                 )
 
@@ -771,8 +1076,7 @@ def main():
                                 )
 
                                 print(
-                                    f"Codigo: "
-                                    f"{code}"
+                                    f"Codigo: {code}"
                                 )
 
                                 print(
@@ -796,16 +1100,7 @@ def main():
                                 )
 
                                 print(
-                                    f"Fecha BD: "
-                                    f"{access['fecha_hora']}"
-                                )
-
-                                print(
                                     "PUERTA ABIERTA"
-                                )
-
-                                print(
-                                    "=============================="
                                 )
 
                                 door_open_until = (
@@ -813,25 +1108,42 @@ def main():
                                     + DOOR_OPEN_TIME
                                 )
 
+                                # =================
+                                # NOTIFICACION
+                                # =================
+
+                                notify_authorized_access(
+                                    access=access,
+                                    person=person,
+                                    access_point=access_point,
+                                )
+
+                                print(
+                                    "=============================="
+                                )
+
                             except Exception as error:
 
-                                print("")
-
                                 print(
-                                    "ERROR REGISTRANDO ACCESO:"
+                                    "ERROR PROCESANDO "
+                                    "ACCESO AUTORIZADO:"
                                 )
 
-                                print(
-                                    error
-                                )
+                                print(error)
 
-                        # =========================
-                        # ACCESO RECHAZADO
-                        # =========================
+                        # =====================
+                        # RECHAZADO
+                        # =====================
 
                         else:
 
                             try:
+
+                                evidence_path = (
+                                    save_unknown_evidence(
+                                        aligned
+                                    )
+                                )
 
                                 access = (
                                     register_access(
@@ -844,7 +1156,8 @@ def main():
                                         puerta_abierta=False,
                                         motivo=(
                                             "Rostro no registrado"
-                                        )
+                                        ),
+                                        captura_path=evidence_path,
                                     )
                                 )
 
@@ -873,16 +1186,23 @@ def main():
                                 )
 
                                 print(
-                                    f"Fecha BD: "
-                                    f"{access['fecha_hora']}"
+                                    f"Evidencia: "
+                                    f"{evidence_path}"
                                 )
 
                                 print(
                                     "PUERTA CERRADA"
                                 )
 
-                                print(
-                                    "ALERTA A SEGURIDAD"
+                                # =================
+                                # ALERTA SEGURIDAD
+                                # =================
+
+                                notify_security_alert(
+                                    access=access,
+                                    access_point=access_point,
+                                    similarity=similarity,
+                                    evidence_path=evidence_path,
                                 )
 
                                 print(
@@ -891,40 +1211,56 @@ def main():
 
                             except Exception as error:
 
-                                print("")
-
                                 print(
-                                    "ERROR REGISTRANDO RECHAZO:"
+                                    "ERROR PROCESANDO "
+                                    "ACCESO RECHAZADO:"
                                 )
 
-                                print(
-                                    error
-                                )
+                                print(error)
 
         # =====================================
-        # REARMAR IDENTIDADES QUE SALIERON
-        # DE LA CAMARA
+        # TOLERANCIA DE AUSENCIA
         # =====================================
 
         for code in list(
             confirmation_counter.keys()
         ):
 
-            if (
-                code
-                not in visible_ids
-            ):
+            if code in visible_ids:
 
-                confirmation_counter[
+                missing_counter[
                     code
                 ] = 0
 
-                access_registered[
+                continue
+
+            missing_counter[
+                code
+            ] += 1
+
+            if (
+                missing_counter[
                     code
-                ] = False
+                ]
+                < REARM_MISSING_FRAMES
+            ):
+
+                continue
+
+            confirmation_counter[
+                code
+            ] = 0
+
+            access_registered[
+                code
+            ] = False
+
+            missing_counter[
+                code
+            ] = 0
 
         # =====================================
-        # ESTADO DE LA PUERTA
+        # ESTADO PUERTA
         # =====================================
 
         if (
@@ -937,7 +1273,7 @@ def main():
                 (10, height - 70),
                 (340, height - 15),
                 (0, 255, 0),
-                -1
+                -1,
             )
 
             cv2.putText(
@@ -947,7 +1283,7 @@ def main():
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,
                 (0, 0, 0),
-                2
+                2,
             )
 
         else:
@@ -959,16 +1295,16 @@ def main():
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
                 (255, 255, 255),
-                2
+                2,
             )
 
         # =====================================
-        # MOSTRAR VIDEO
+        # VIDEO
         # =====================================
 
         cv2.imshow(
             "Control de Acceso Facial - PostgreSQL",
-            frame
+            frame,
         )
 
         key = (
