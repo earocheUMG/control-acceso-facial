@@ -7,6 +7,9 @@ import Layout from "./components/Layout";
 
 import DashboardPage from "./pages/DashboardPage";
 import PersonasPage from "./pages/PersonasPage";
+import ViviendasPage from "./pages/ViviendasPage";
+import AccesosPage from "./pages/AccesosPage";
+import NotificacionesPage from "./pages/NotificacionesPage";
 
 import "./App.css";
 
@@ -32,6 +35,27 @@ function App() {
           path="/personas"
           element={
             <PersonasPage />
+          }
+        />
+
+        <Route
+          path="/viviendas"
+          element={
+            <ViviendasPage />
+          }
+        />
+
+        <Route
+          path="/accesos"
+          element={
+            <AccesosPage />
+          }
+        />
+
+        <Route
+          path="/notificaciones"
+          element={
+            <NotificacionesPage />
           }
         />
 

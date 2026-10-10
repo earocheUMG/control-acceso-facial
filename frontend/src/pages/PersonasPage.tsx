@@ -4,6 +4,9 @@ import {
   useState,
 } from "react";
 
+import EnrollmentModal
+  from "../components/EnrollmentModal";
+
 
 interface Person {
   id: number;
@@ -48,6 +51,45 @@ interface PersonForm {
 }
 
 
+interface EnrollmentPerson {
+  id: number;
+  nombre_completo: string;
+}
+
+
+interface PersonDetailResponse {
+
+  persona: {
+    id: number;
+    codigo_biometrico: string | null;
+    nombre_completo: string;
+    tipo: string;
+    email: string | null;
+    telefono: string | null;
+    activo: boolean;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    creado_en: string;
+  };
+
+  vivienda: {
+    id: number;
+    codigo: string;
+    direccion: string | null;
+    relacion: string;
+    es_responsable_notificacion: boolean;
+  } | null;
+
+  biometria: {
+    modelo: string;
+    template_path: string;
+    cantidad_muestras: number;
+    activo: boolean;
+    creado_en: string;
+  } | null;
+}
+
+
 const initialForm: PersonForm = {
   nombre_completo: "",
   tipo: "RESIDENTE",
@@ -58,33 +100,149 @@ const initialForm: PersonForm = {
 };
 
 
+function formatDate(
+  value: string | null
+) {
+
+  if (!value) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat(
+    "es-GT",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }
+  ).format(
+    new Date(value)
+  );
+
+}
+
+
 function PersonasPage() {
 
-  const [people, setPeople] =
-    useState<Person[]>([]);
+  // ==========================================
+  // LISTADOS
+  // ==========================================
 
-  const [houses, setHouses] =
-    useState<House[]>([]);
+  const [
+    people,
+    setPeople
+  ] = useState<Person[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [
+    houses,
+    setHouses
+  ] = useState<House[]>([]);
 
-  const [success, setSuccess] =
-    useState<string | null>(null);
 
-  const [showModal, setShowModal] =
-    useState(false);
+  // ==========================================
+  // ESTADO GENERAL
+  // ==========================================
 
-  const [saving, setSaving] =
-    useState(false);
+  const [
+    loading,
+    setLoading
+  ] = useState(true);
 
-  const [form, setForm] =
-    useState<PersonForm>(
-      initialForm
-    );
+
+  const [
+    error,
+    setError
+  ] = useState<string | null>(
+    null
+  );
+
+
+  const [
+    success,
+    setSuccess
+  ] = useState<string | null>(
+    null
+  );
+
+
+  // ==========================================
+  // CREAR PERSONA
+  // ==========================================
+
+  const [
+    showCreateModal,
+    setShowCreateModal
+  ] = useState(false);
+
+
+  const [
+    saving,
+    setSaving
+  ] = useState(false);
+
+
+  const [
+    form,
+    setForm
+  ] = useState<PersonForm>(
+    initialForm
+  );
+
+
+  // ==========================================
+  // ENROLAMIENTO
+  // ==========================================
+
+  const [
+    enrollmentPerson,
+    setEnrollmentPerson
+  ] = useState<EnrollmentPerson | null>(
+    null
+  );
+
+
+  // ==========================================
+  // DETALLE / EDICION
+  // ==========================================
+
+  const [
+    personDetail,
+    setPersonDetail
+  ] = useState<PersonDetailResponse | null>(
+    null
+  );
+
+
+  const [
+    detailLoading,
+    setDetailLoading
+  ] = useState(false);
+
+
+  const [
+    editMode,
+    setEditMode
+  ] = useState(false);
+
+
+  const [
+    editForm,
+    setEditForm
+  ] = useState<PersonForm>(
+    initialForm
+  );
+
+
+  const [
+    savingEdit,
+    setSavingEdit
+  ] = useState(false);
+
+
+  const [
+    changingStatus,
+    setChangingStatus
+  ] = useState(false);
 
 
   // ==========================================
@@ -101,6 +259,7 @@ function PersonasPage() {
             "http://127.0.0.1:8000/api/personas"
           );
 
+
         if (!response.ok) {
 
           throw new Error(
@@ -109,13 +268,16 @@ function PersonasPage() {
 
         }
 
+
         const data:
           PeopleResponse =
             await response.json();
 
+
         setPeople(
           data.personas
         );
+
 
       } catch (err) {
 
@@ -148,6 +310,7 @@ function PersonasPage() {
             "http://127.0.0.1:8000/api/viviendas"
           );
 
+
         if (!response.ok) {
 
           throw new Error(
@@ -156,13 +319,16 @@ function PersonasPage() {
 
         }
 
+
         const data:
           HousesResponse =
             await response.json();
 
+
         setHouses(
           data.viviendas
         );
+
 
       } catch (err) {
 
@@ -182,7 +348,7 @@ function PersonasPage() {
 
 
   // ==========================================
-  // CARGA INICIAL
+  // CARGA GENERAL
   // ==========================================
 
   const loadData =
@@ -192,14 +358,17 @@ function PersonasPage() {
         true
       );
 
+
       setError(
         null
       );
+
 
       await Promise.all([
         loadPeople(),
         loadHouses(),
       ]);
+
 
       setLoading(
         false
@@ -216,24 +385,27 @@ function PersonasPage() {
 
 
   // ==========================================
-  // ABRIR FORMULARIO
+  // ABRIR CREAR PERSONA
   // ==========================================
 
-  const openModal = () => {
+  const openCreateModal = () => {
 
     setForm(
       initialForm
     );
 
+
     setError(
       null
     );
+
 
     setSuccess(
       null
     );
 
-    setShowModal(
+
+    setShowCreateModal(
       true
     );
 
@@ -241,32 +413,18 @@ function PersonasPage() {
 
 
   // ==========================================
-  // CERRAR FORMULARIO
-  // ==========================================
-
-  const closeModal = () => {
-
-    if (saving) {
-      return;
-    }
-
-    setShowModal(
-      false
-    );
-
-  };
-
-
-  // ==========================================
-  // CAMBIAR TIPO
+  // CAMBIO TIPO - CREACION
   // ==========================================
 
   const handleTypeChange =
-    (tipo: string) => {
+    (
+      tipo: string
+    ) => {
 
       setForm(
         (current) => ({
           ...current,
+
           tipo,
 
           vivienda_id:
@@ -296,9 +454,11 @@ function PersonasPage() {
 
       event.preventDefault();
 
+
       setError(
         null
       );
+
 
       setSuccess(
         null
@@ -334,8 +494,7 @@ function PersonasPage() {
         const payload = {
 
           nombre_completo:
-            form.nombre_completo
-              .trim(),
+            form.nombre_completo.trim(),
 
           tipo:
             form.tipo,
@@ -401,25 +560,6 @@ function PersonasPage() {
             message =
               result.detail;
 
-          } else if (
-            Array.isArray(
-              result.detail
-            )
-          ) {
-
-            message =
-              result.detail
-                .map(
-                  (
-                    item: {
-                      msg?: string;
-                    }
-                  ) =>
-                    item.msg
-                    ?? "Dato inválido"
-                )
-                .join(", ");
-
           }
 
 
@@ -430,14 +570,15 @@ function PersonasPage() {
         }
 
 
-        setSuccess(
-          "Persona creada correctamente. "
-          + "La biometría está pendiente de enrolamiento."
+        setShowCreateModal(
+          false
         );
 
 
-        setShowModal(
-          false
+        setSuccess(
+          "Persona creada correctamente. "
+          + "La biometría está pendiente "
+          + "de enrolamiento."
         );
 
 
@@ -456,6 +597,7 @@ function PersonasPage() {
 
         }
 
+
       } finally {
 
         setSaving(
@@ -467,11 +609,511 @@ function PersonasPage() {
     };
 
 
+  // ==========================================
+  // CARGAR DETALLE
+  // ==========================================
+
+  const openPersonDetail =
+    async (
+      personId: number,
+      openEditing = false
+    ) => {
+
+      try {
+
+        setDetailLoading(
+          true
+        );
+
+
+        setError(
+          null
+        );
+
+
+        const response =
+          await fetch(
+            `http://127.0.0.1:8000/api/personas/${personId}/detalle`
+          );
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            "No fue posible consultar "
+            + "el detalle de la persona."
+          );
+
+        }
+
+
+        const data:
+          PersonDetailResponse =
+            await response.json();
+
+
+        setPersonDetail(
+          data
+        );
+
+
+        setEditForm({
+          nombre_completo:
+            data.persona.nombre_completo,
+
+          tipo:
+            data.persona.tipo,
+
+          email:
+            data.persona.email
+            ?? "",
+
+          telefono:
+            data.persona.telefono
+            ?? "",
+
+          vivienda_id:
+            data.vivienda
+              ? String(
+                  data.vivienda.id
+                )
+              : "",
+
+          es_responsable_notificacion:
+            data.vivienda
+              ?.es_responsable_notificacion
+            ?? false,
+        });
+
+
+        setEditMode(
+          openEditing
+        );
+
+
+      } catch (err) {
+
+        if (
+          err instanceof Error
+        ) {
+
+          setError(
+            err.message
+          );
+
+        }
+
+
+      } finally {
+
+        setDetailLoading(
+          false
+        );
+
+      }
+
+    };
+
+
+  // ==========================================
+  // CERRAR DETALLE
+  // ==========================================
+
+  const closeDetail = () => {
+
+    if (
+      savingEdit
+      ||
+      changingStatus
+    ) {
+
+      return;
+
+    }
+
+
+    setPersonDetail(
+      null
+    );
+
+
+    setEditMode(
+      false
+    );
+
+  };
+
+
+  // ==========================================
+  // CAMBIAR TIPO - EDICION
+  // ==========================================
+
+  const handleEditTypeChange =
+    (
+      tipo: string
+    ) => {
+
+      setEditForm(
+        (current) => ({
+          ...current,
+
+          tipo,
+
+          vivienda_id:
+            tipo === "SEGURIDAD"
+              ? ""
+              : current.vivienda_id,
+
+          es_responsable_notificacion:
+            tipo === "RESIDENTE"
+              ? current
+                  .es_responsable_notificacion
+              : false,
+        })
+      );
+
+    };
+
+
+  // ==========================================
+  // GUARDAR EDICION
+  // ==========================================
+
+  const savePersonEdit =
+    async (
+      event: FormEvent
+    ) => {
+
+      event.preventDefault();
+
+
+      if (!personDetail) {
+        return;
+      }
+
+
+      if (
+        (
+          editForm.tipo === "RESIDENTE"
+          ||
+          editForm.tipo === "TRABAJADOR"
+        )
+        &&
+        !editForm.vivienda_id
+      ) {
+
+        setError(
+          "Debe seleccionar una vivienda."
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        setSavingEdit(
+          true
+        );
+
+
+        setError(
+          null
+        );
+
+
+        const payload = {
+
+          nombre_completo:
+            editForm
+              .nombre_completo
+              .trim(),
+
+          tipo:
+            editForm.tipo,
+
+          email:
+            editForm.email.trim()
+              || null,
+
+          telefono:
+            editForm.telefono.trim()
+              || null,
+
+          vivienda_id:
+            editForm.tipo
+            === "SEGURIDAD"
+              ? null
+              : Number(
+                  editForm.vivienda_id
+                ),
+
+          es_responsable_notificacion:
+            editForm.tipo
+            === "RESIDENTE"
+              ? editForm
+                  .es_responsable_notificacion
+              : false,
+
+        };
+
+
+        const response =
+          await fetch(
+            `http://127.0.0.1:8000/api/personas/${personDetail.persona.id}`,
+            {
+              method: "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify(
+                  payload
+                ),
+            }
+          );
+
+
+        const result =
+          await response.json();
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            typeof result.detail
+            === "string"
+              ? result.detail
+              : "No fue posible actualizar la persona."
+          );
+
+        }
+
+
+        setPersonDetail(
+          result.detalle
+        );
+
+
+        setEditMode(
+          false
+        );
+
+
+        setSuccess(
+          "Persona actualizada correctamente."
+        );
+
+
+        await loadPeople();
+
+
+      } catch (err) {
+
+        if (
+          err instanceof Error
+        ) {
+
+          setError(
+            err.message
+          );
+
+        }
+
+
+      } finally {
+
+        setSavingEdit(
+          false
+        );
+
+      }
+
+    };
+
+
+  // ==========================================
+  // ACTIVAR / INACTIVAR
+  // ==========================================
+
+  const togglePersonStatus =
+    async () => {
+
+      if (!personDetail) {
+        return;
+      }
+
+
+      const newStatus =
+        !personDetail.persona.activo;
+
+
+      const action =
+        newStatus
+          ? "activar"
+          : "inactivar";
+
+
+      const confirmed =
+        window.confirm(
+          `¿Está seguro de ${action} a `
+          + `${personDetail.persona.nombre_completo}?`
+        );
+
+
+      if (!confirmed) {
+        return;
+      }
+
+
+      try {
+
+        setChangingStatus(
+          true
+        );
+
+
+        setError(
+          null
+        );
+
+
+        const response =
+          await fetch(
+            `http://127.0.0.1:8000/api/personas/${personDetail.persona.id}/estado`,
+            {
+              method: "PATCH",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  activo:
+                    newStatus,
+                }),
+            }
+          );
+
+
+        const result =
+          await response.json();
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            typeof result.detail
+            === "string"
+              ? result.detail
+              : "No fue posible cambiar el estado."
+          );
+
+        }
+
+
+        setPersonDetail(
+          (current) => {
+
+            if (!current) {
+              return current;
+            }
+
+
+            return {
+              ...current,
+
+              persona: {
+                ...current.persona,
+
+                activo:
+                  newStatus,
+              },
+            };
+
+          }
+        );
+
+
+        setSuccess(
+          result.message
+        );
+
+
+        await loadPeople();
+
+
+      } catch (err) {
+
+        if (
+          err instanceof Error
+        ) {
+
+          setError(
+            err.message
+          );
+
+        }
+
+
+      } finally {
+
+        setChangingStatus(
+          false
+        );
+
+      }
+
+    };
+
+
+  // ==========================================
+  // ENROLAMIENTO COMPLETADO
+  // ==========================================
+
+  const handleEnrollmentCompleted =
+    async (
+      biometricCode: string
+    ) => {
+
+      setEnrollmentPerson(
+        null
+      );
+
+
+      setError(
+        null
+      );
+
+
+      setSuccess(
+        "Enrolamiento biométrico "
+        + "completado correctamente. "
+        + "Código asignado: "
+        + biometricCode
+      );
+
+
+      await loadPeople();
+
+    };
+
+
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
     <>
 
       {/* =====================================
-          ENCABEZADO
+          HEADER
       ====================================== */}
 
       <header className="topbar">
@@ -505,7 +1147,7 @@ function PersonasPage() {
           <button
             className="primary-button"
             onClick={
-              openModal
+              openCreateModal
             }
           >
             + Nueva persona
@@ -521,23 +1163,35 @@ function PersonasPage() {
       ====================================== */}
 
       {success && (
+
         <div className="success-message">
+
           {success}
+
         </div>
+
       )}
 
 
       {error && (
+
         <div className="error-message">
+
           {error}
+
         </div>
+
       )}
 
 
       {loading && (
+
         <div className="message">
+
           Cargando personas...
+
         </div>
+
       )}
 
 
@@ -598,6 +1252,10 @@ function PersonasPage() {
                     Estado
                   </th>
 
+                  <th>
+                    Acciones
+                  </th>
+
                 </tr>
 
               </thead>
@@ -605,150 +1263,206 @@ function PersonasPage() {
 
               <tbody>
 
-                {people.map(
-                  (person) => (
+                {
+                  people.map(
+                    (person) => (
 
-                    <tr
-                      key={
-                        person.id
-                      }
-                    >
-
-                      <td>
-
-                        {
-                          person
-                            .codigo_biometrico
-                          ?? "-"
+                      <tr
+                        key={
+                          person.id
                         }
+                      >
 
-                      </td>
+                        <td>
 
+                          {
+                            person.codigo_biometrico
+                            ?? "-"
+                          }
 
-                      <td>
-
-                        <div className="person-cell">
-
-                          <div className="person-avatar">
-
-                            {
-                              person
-                                .nombre_completo
-                                .charAt(0)
-                                .toUpperCase()
-                            }
-
-                          </div>
+                        </td>
 
 
-                          <div>
+                        <td>
 
-                            <strong>
+                          <div className="person-cell">
+
+                            <div className="person-avatar">
 
                               {
                                 person
                                   .nombre_completo
+                                  .charAt(0)
+                                  .toUpperCase()
                               }
 
-                            </strong>
+                            </div>
 
 
-                            <div className="secondary-text">
+                            <div>
 
-                              {
-                                person.email
-                                ??
-                                "Sin correo"
-                              }
+                              <strong>
+
+                                {
+                                  person
+                                    .nombre_completo
+                                }
+
+                              </strong>
+
+
+                              <div className="secondary-text">
+
+                                {
+                                  person.email
+                                  ?? "Sin correo"
+                                }
+
+                              </div>
 
                             </div>
 
                           </div>
 
-                        </div>
-
-                      </td>
+                        </td>
 
 
-                      <td>
+                        <td>
 
-                        {
-                          person.tipo
-                        }
+                          {person.tipo}
 
-                      </td>
+                        </td>
 
 
-                      <td>
-
-                        {
-                          person.viviendas
-                            .length > 0
-                            ?
-                              person.viviendas
-                                .join(", ")
-                            :
-                              "Sin vivienda"
-                        }
-
-                      </td>
-
-
-                      <td>
-
-                        <span
-                          className={
-                            person
-                              .biometria_configurada
-                              ?
-                                "badge badge-success"
-                              :
-                                "badge badge-warning"
-                          }
-                        >
+                        <td>
 
                           {
-                            person
-                              .biometria_configurada
-                              ?
-                                "CONFIGURADA"
-                              :
-                                "PENDIENTE"
+                            person.viviendas.length
+                            > 0
+                              ? person.viviendas
+                                  .join(", ")
+                              : "Sin vivienda"
                           }
 
-                        </span>
-
-                      </td>
+                        </td>
 
 
-                      <td>
+                        <td>
 
-                        <span
-                          className={
-                            person.activo
-                            ?
-                              "badge badge-success"
-                            :
-                              "badge badge-danger"
-                          }
-                        >
+                          <span
+                            className={
+                              person
+                                .biometria_configurada
+                                ? "badge badge-success"
+                                : "badge badge-warning"
+                            }
+                          >
 
-                          {
-                            person.activo
-                            ?
-                              "ACTIVO"
-                            :
-                              "INACTIVO"
-                          }
+                            {
+                              person
+                                .biometria_configurada
+                                ? "CONFIGURADA"
+                                : "PENDIENTE"
+                            }
 
-                        </span>
+                          </span>
 
-                      </td>
+                        </td>
 
-                    </tr>
 
+                        <td>
+
+                          <span
+                            className={
+                              person.activo
+                                ? "badge badge-success"
+                                : "badge badge-danger"
+                            }
+                          >
+
+                            {
+                              person.activo
+                                ? "ACTIVO"
+                                : "INACTIVO"
+                            }
+
+                          </span>
+
+                        </td>
+
+
+                        <td>
+
+                          <div className="person-actions">
+
+                            <button
+                              type="button"
+                              className="action-button"
+                              onClick={
+                                () =>
+                                  openPersonDetail(
+                                    person.id
+                                  )
+                              }
+                            >
+                              Ver detalle
+                            </button>
+
+
+                            <button
+                              type="button"
+                              className="action-button"
+                              onClick={
+                                () =>
+                                  openPersonDetail(
+                                    person.id,
+                                    true
+                                  )
+                              }
+                            >
+                              Editar
+                            </button>
+
+
+                            {
+                              !person
+                                .biometria_configurada
+                              &&
+                              person.activo
+                              && (
+
+                                <button
+                                  type="button"
+                                  className="enroll-button"
+                                  onClick={
+                                    () =>
+                                      setEnrollmentPerson(
+                                        {
+                                          id:
+                                            person.id,
+
+                                          nombre_completo:
+                                            person
+                                              .nombre_completo,
+                                        }
+                                      )
+                                  }
+                                >
+                                  Enrolar
+                                </button>
+
+                              )
+                            }
+
+                          </div>
+
+                        </td>
+
+                      </tr>
+
+                    )
                   )
-                )}
+                }
 
               </tbody>
 
@@ -762,10 +1476,10 @@ function PersonasPage() {
 
 
       {/* =====================================
-          MODAL NUEVA PERSONA
+          CREAR PERSONA
       ====================================== */}
 
-      {showModal && (
+      {showCreateModal && (
 
         <div className="modal-backdrop">
 
@@ -788,10 +1502,12 @@ function PersonasPage() {
 
 
               <button
-                type="button"
                 className="modal-close"
                 onClick={
-                  closeModal
+                  () =>
+                    setShowCreateModal(
+                      false
+                    )
                 }
               >
                 ×
@@ -808,7 +1524,6 @@ function PersonasPage() {
 
               <div className="modal-body">
 
-
                 <div className="form-group">
 
                   <label>
@@ -816,7 +1531,6 @@ function PersonasPage() {
                   </label>
 
                   <input
-                    type="text"
                     required
                     minLength={3}
                     maxLength={150}
@@ -825,22 +1539,19 @@ function PersonasPage() {
                     }
                     onChange={
                       (event) =>
-                        setForm(
-                          {
-                            ...form,
-                            nombre_completo:
-                              event.target.value,
-                          }
-                        )
+                        setForm({
+                          ...form,
+
+                          nombre_completo:
+                            event.target.value,
+                        })
                     }
-                    placeholder="Ej. Juan Pérez"
                   />
 
                 </div>
 
 
                 <div className="form-row">
-
 
                   <div className="form-group">
 
@@ -860,21 +1571,15 @@ function PersonasPage() {
                       }
                     >
 
-                      <option
-                        value="RESIDENTE"
-                      >
+                      <option value="RESIDENTE">
                         Residente
                       </option>
 
-                      <option
-                        value="TRABAJADOR"
-                      >
+                      <option value="TRABAJADOR">
                         Trabajador
                       </option>
 
-                      <option
-                        value="SEGURIDAD"
-                      >
+                      <option value="SEGURIDAD">
                         Seguridad
                       </option>
 
@@ -901,15 +1606,12 @@ function PersonasPage() {
                           }
                           onChange={
                             (event) =>
-                              setForm(
-                                {
-                                  ...form,
-                                  vivienda_id:
-                                    event
-                                      .target
-                                      .value,
-                                }
-                              )
+                              setForm({
+                                ...form,
+
+                                vivienda_id:
+                                  event.target.value,
+                              })
                           }
                         >
 
@@ -931,9 +1633,7 @@ function PersonasPage() {
                                   }
                                 >
 
-                                  {
-                                    house.codigo
-                                  }
+                                  {house.codigo}
 
                                 </option>
 
@@ -954,7 +1654,7 @@ function PersonasPage() {
                 <div className="form-group">
 
                   <label>
-                    Correo electrónico
+                    Correo
                   </label>
 
                   <input
@@ -964,15 +1664,13 @@ function PersonasPage() {
                     }
                     onChange={
                       (event) =>
-                        setForm(
-                          {
-                            ...form,
-                            email:
-                              event.target.value,
-                          }
-                        )
+                        setForm({
+                          ...form,
+
+                          email:
+                            event.target.value,
+                        })
                     }
-                    placeholder="correo@ejemplo.com"
                   />
 
                 </div>
@@ -985,22 +1683,18 @@ function PersonasPage() {
                   </label>
 
                   <input
-                    type="text"
-                    maxLength={30}
                     value={
                       form.telefono
                     }
                     onChange={
                       (event) =>
-                        setForm(
-                          {
-                            ...form,
-                            telefono:
-                              event.target.value,
-                          }
-                        )
+                        setForm({
+                          ...form,
+
+                          telefono:
+                            event.target.value,
+                        })
                     }
-                    placeholder="Ej. 5555-5555"
                   />
 
                 </div>
@@ -1021,15 +1715,12 @@ function PersonasPage() {
                         }
                         onChange={
                           (event) =>
-                            setForm(
-                              {
-                                ...form,
-                                es_responsable_notificacion:
-                                  event
-                                    .target
-                                    .checked,
-                              }
-                            )
+                            setForm({
+                              ...form,
+
+                              es_responsable_notificacion:
+                                event.target.checked,
+                            })
                         }
                       />
 
@@ -1040,8 +1731,9 @@ function PersonasPage() {
                         </strong>
 
                         <span>
-                          Recibirá avisos relacionados
-                          con ingresos a esta vivienda.
+                          Recibirá avisos
+                          relacionados con
+                          esta vivienda.
                         </span>
 
                       </div>
@@ -1050,22 +1742,6 @@ function PersonasPage() {
 
                   )
                 }
-
-
-                <div className="form-info">
-
-                  <strong>
-                    Biometría pendiente
-                  </strong>
-
-                  <p>
-                    Después de crear la persona
-                    deberá realizarse el enrolamiento
-                    facial para habilitar el
-                    reconocimiento.
-                  </p>
-
-                </div>
 
               </div>
 
@@ -1076,10 +1752,10 @@ function PersonasPage() {
                   type="button"
                   className="secondary-button"
                   onClick={
-                    closeModal
-                  }
-                  disabled={
-                    saving
+                    () =>
+                      setShowCreateModal(
+                        false
+                      )
                   }
                 >
                   Cancelar
@@ -1087,7 +1763,6 @@ function PersonasPage() {
 
 
                 <button
-                  type="submit"
                   className="primary-button"
                   disabled={
                     saving
@@ -1096,10 +1771,8 @@ function PersonasPage() {
 
                   {
                     saving
-                    ?
-                      "Guardando..."
-                    :
-                      "Crear persona"
+                      ? "Guardando..."
+                      : "Crear persona"
                   }
 
                 </button>
@@ -1113,6 +1786,655 @@ function PersonasPage() {
         </div>
 
       )}
+
+
+      {/* =====================================
+          DETALLE / EDICION
+      ====================================== */}
+
+      {
+        personDetail
+        && (
+
+          <div className="modal-backdrop">
+
+            <div className="modal person-detail-modal">
+
+              <div className="modal-header">
+
+                <div>
+
+                  <h3>
+                    {
+                      editMode
+                        ? "Editar persona"
+                        : "Detalle de persona"
+                    }
+                  </h3>
+
+                  <p>
+                    {
+                      personDetail
+                        .persona
+                        .nombre_completo
+                    }
+                  </p>
+
+                </div>
+
+
+                <button
+                  className="modal-close"
+                  onClick={
+                    closeDetail
+                  }
+                >
+                  ×
+                </button>
+
+              </div>
+
+
+              {
+                editMode
+                ? (
+
+                  <form
+                    onSubmit={
+                      savePersonEdit
+                    }
+                  >
+
+                    <div className="modal-body">
+
+                      <div className="form-group">
+
+                        <label>
+                          Nombre completo *
+                        </label>
+
+                        <input
+                          required
+                          value={
+                            editForm
+                              .nombre_completo
+                          }
+                          onChange={
+                            (event) =>
+                              setEditForm({
+                                ...editForm,
+
+                                nombre_completo:
+                                  event.target.value,
+                              })
+                          }
+                        />
+
+                      </div>
+
+
+                      <div className="form-row">
+
+                        <div className="form-group">
+
+                          <label>
+                            Tipo
+                          </label>
+
+                          <select
+                            value={
+                              editForm.tipo
+                            }
+                            onChange={
+                              (event) =>
+                                handleEditTypeChange(
+                                  event.target.value
+                                )
+                            }
+                          >
+
+                            <option value="RESIDENTE">
+                              Residente
+                            </option>
+
+                            <option value="TRABAJADOR">
+                              Trabajador
+                            </option>
+
+                            <option value="SEGURIDAD">
+                              Seguridad
+                            </option>
+
+                          </select>
+
+                        </div>
+
+
+                        {
+                          editForm.tipo
+                          !== "SEGURIDAD"
+                          && (
+
+                            <div className="form-group">
+
+                              <label>
+                                Vivienda
+                              </label>
+
+                              <select
+                                value={
+                                  editForm
+                                    .vivienda_id
+                                }
+                                onChange={
+                                  (event) =>
+                                    setEditForm({
+                                      ...editForm,
+
+                                      vivienda_id:
+                                        event.target.value,
+                                    })
+                                }
+                              >
+
+                                <option value="">
+                                  Seleccione...
+                                </option>
+
+
+                                {
+                                  houses.map(
+                                    (house) => (
+
+                                      <option
+                                        key={
+                                          house.id
+                                        }
+                                        value={
+                                          house.id
+                                        }
+                                      >
+
+                                        {
+                                          house.codigo
+                                        }
+
+                                      </option>
+
+                                    )
+                                  )
+                                }
+
+                              </select>
+
+                            </div>
+
+                          )
+                        }
+
+                      </div>
+
+
+                      <div className="form-group">
+
+                        <label>
+                          Correo
+                        </label>
+
+                        <input
+                          type="email"
+                          value={
+                            editForm.email
+                          }
+                          onChange={
+                            (event) =>
+                              setEditForm({
+                                ...editForm,
+
+                                email:
+                                  event.target.value,
+                              })
+                          }
+                        />
+
+                      </div>
+
+
+                      <div className="form-group">
+
+                        <label>
+                          Teléfono
+                        </label>
+
+                        <input
+                          value={
+                            editForm.telefono
+                          }
+                          onChange={
+                            (event) =>
+                              setEditForm({
+                                ...editForm,
+
+                                telefono:
+                                  event.target.value,
+                              })
+                          }
+                        />
+
+                      </div>
+
+
+                      {
+                        editForm.tipo
+                        === "RESIDENTE"
+                        && (
+
+                          <label className="checkbox-row">
+
+                            <input
+                              type="checkbox"
+                              checked={
+                                editForm
+                                  .es_responsable_notificacion
+                              }
+                              onChange={
+                                (event) =>
+                                  setEditForm({
+                                    ...editForm,
+
+                                    es_responsable_notificacion:
+                                      event.target.checked,
+                                  })
+                              }
+                            />
+
+                            <div>
+
+                              <strong>
+                                Responsable
+                                de notificaciones
+                              </strong>
+
+                            </div>
+
+                          </label>
+
+                        )
+                      }
+
+                    </div>
+
+
+                    <div className="modal-footer">
+
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={
+                          () =>
+                            setEditMode(
+                              false
+                            )
+                        }
+                      >
+                        Cancelar
+                      </button>
+
+
+                      <button
+                        className="primary-button"
+                        disabled={
+                          savingEdit
+                        }
+                      >
+
+                        {
+                          savingEdit
+                            ? "Guardando..."
+                            : "Guardar cambios"
+                        }
+
+                      </button>
+
+                    </div>
+
+                  </form>
+
+                )
+                : (
+
+                  <>
+
+                    <div className="modal-body">
+
+                      <div className="detail-grid">
+
+                        <div className="detail-item">
+
+                          <span>
+                            Código biométrico
+                          </span>
+
+                          <strong>
+                            {
+                              personDetail
+                                .persona
+                                .codigo_biometrico
+                              ?? "Pendiente"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="detail-item">
+
+                          <span>
+                            Tipo
+                          </span>
+
+                          <strong>
+                            {
+                              personDetail
+                                .persona.tipo
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="detail-item">
+
+                          <span>
+                            Correo
+                          </span>
+
+                          <strong>
+                            {
+                              personDetail
+                                .persona.email
+                              ?? "Sin correo"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="detail-item">
+
+                          <span>
+                            Teléfono
+                          </span>
+
+                          <strong>
+                            {
+                              personDetail
+                                .persona.telefono
+                              ?? "Sin teléfono"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="detail-item">
+
+                          <span>
+                            Vivienda
+                          </span>
+
+                          <strong>
+                            {
+                              personDetail
+                                .vivienda?.codigo
+                              ?? "Sin vivienda"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="detail-item">
+
+                          <span>
+                            Estado
+                          </span>
+
+                          <strong>
+                            {
+                              personDetail
+                                .persona.activo
+                              ? "ACTIVO"
+                              : "INACTIVO"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="detail-item">
+
+                          <span>
+                            Registrado
+                          </span>
+
+                          <strong>
+                            {
+                              formatDate(
+                                personDetail
+                                  .persona
+                                  .creado_en
+                              )
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="detail-item">
+
+                          <span>
+                            Responsable
+                            de notificaciones
+                          </span>
+
+                          <strong>
+                            {
+                              personDetail
+                                .vivienda
+                                ?.es_responsable_notificacion
+                              ? "Sí"
+                              : "No"
+                            }
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="detail-section">
+
+                        <h4>
+                          Biometría
+                        </h4>
+
+
+                        {
+                          personDetail.biometria
+                          ? (
+
+                            <div className="detail-grid">
+
+                              <div className="detail-item">
+
+                                <span>
+                                  Modelo
+                                </span>
+
+                                <strong>
+                                  {
+                                    personDetail
+                                      .biometria.modelo
+                                  }
+                                </strong>
+
+                              </div>
+
+
+                              <div className="detail-item">
+
+                                <span>
+                                  Muestras
+                                </span>
+
+                                <strong>
+                                  {
+                                    personDetail
+                                      .biometria
+                                      .cantidad_muestras
+                                  }
+                                </strong>
+
+                              </div>
+
+                            </div>
+
+                          )
+                          : (
+
+                            <div className="form-info">
+
+                              <strong>
+                                Biometría pendiente
+                              </strong>
+
+                              <p>
+                                Esta persona todavía
+                                no ha sido enrolada.
+                              </p>
+
+                            </div>
+
+                          )
+                        }
+
+                      </div>
+
+                    </div>
+
+
+                    <div className="modal-footer person-detail-footer">
+
+                      <button
+                        type="button"
+                        className={
+                          personDetail
+                            .persona.activo
+                            ? "danger-button"
+                            : "activate-button"
+                        }
+                        onClick={
+                          togglePersonStatus
+                        }
+                        disabled={
+                          changingStatus
+                        }
+                      >
+
+                        {
+                          changingStatus
+                            ? "Procesando..."
+                            : personDetail
+                                .persona.activo
+                              ? "Inactivar"
+                              : "Activar"
+                        }
+
+                      </button>
+
+
+                      <div className="detail-footer-right">
+
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={
+                            closeDetail
+                          }
+                        >
+                          Cerrar
+                        </button>
+
+
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={
+                            () =>
+                              setEditMode(
+                                true
+                              )
+                          }
+                        >
+                          Editar persona
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  </>
+
+                )
+              }
+
+            </div>
+
+          </div>
+
+        )
+      }
+
+
+      {/* CARGANDO DETALLE */}
+
+      {detailLoading && (
+
+        <div className="floating-loading">
+
+          Cargando detalle...
+
+        </div>
+
+      )}
+
+
+      {/* =====================================
+          ENROLAMIENTO
+      ====================================== */}
+
+      {
+        enrollmentPerson
+        && (
+
+          <EnrollmentModal
+            person={
+              enrollmentPerson
+            }
+            onClose={
+              () =>
+                setEnrollmentPerson(
+                  null
+                )
+            }
+            onCompleted={
+              handleEnrollmentCompleted
+            }
+          />
+
+        )
+      }
 
     </>
   );

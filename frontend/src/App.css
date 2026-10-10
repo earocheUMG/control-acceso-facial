@@ -750,3 +750,974 @@ tbody tr:hover {
   }
 
 }
+
+
+/* =============================================
+   VIVIENDAS
+============================================= */
+
+.houses-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+
+.house-card {
+  background: white;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  padding: 22px;
+
+  box-shadow:
+    0 1px 2px
+    rgba(0, 0, 0, 0.04);
+}
+
+
+.house-card-header {
+  display: flex;
+
+  gap: 14px;
+
+  align-items: center;
+
+  margin-bottom: 22px;
+}
+
+
+.house-icon {
+  width: 48px;
+  height: 48px;
+
+  border-radius: 10px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  background: #eff6ff;
+
+  font-size: 22px;
+}
+
+
+.house-card h3 {
+  margin: 0;
+
+  color: #111827;
+
+  font-size: 18px;
+}
+
+
+.house-card p {
+  margin: 5px 0 0;
+
+  color: #6b7280;
+
+  font-size: 12px;
+}
+
+
+.house-stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 8px;
+
+  margin-bottom: 18px;
+}
+
+
+.house-stats div {
+  padding: 12px 8px;
+
+  text-align: center;
+
+  background: #f9fafb;
+
+  border-radius: 8px;
+}
+
+
+.house-stats span {
+  display: block;
+
+  color: #6b7280;
+
+  font-size: 10px;
+
+  margin-bottom: 5px;
+}
+
+
+.house-stats strong {
+  color: #111827;
+
+  font-size: 19px;
+}
+
+
+.house-responsible {
+  padding:
+    12px 0 18px;
+
+  color: #6b7280;
+
+  font-size: 12px;
+}
+
+
+.house-button {
+  width: 100%;
+}
+
+
+.house-detail-modal {
+  max-width: 850px;
+}
+
+
+.house-detail-title {
+  margin:
+    0 0 16px;
+
+  color: #111827;
+}
+
+
+.badge-info {
+  background: #dbeafe;
+
+  color: #1d4ed8;
+}
+
+
+.floating-loading {
+  position: fixed;
+
+  right: 20px;
+  bottom: 20px;
+
+  background: #111827;
+
+  color: white;
+
+  padding:
+    10px 16px;
+
+  border-radius: 8px;
+
+  font-size: 12px;
+
+  z-index: 1100;
+}
+
+
+@media (
+  max-width: 1100px
+) {
+
+  .houses-grid {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+}
+
+
+@media (
+  max-width: 700px
+) {
+
+  .houses-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+}
+
+/* =============================================
+   ACCESOS - RESUMEN
+============================================= */
+
+.access-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 16px;
+
+  margin-bottom: 18px;
+}
+
+
+.access-summary-card {
+  padding: 18px 20px;
+
+  background: white;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 10px;
+}
+
+
+.access-summary-card span {
+  display: block;
+
+  color: #6b7280;
+
+  font-size: 12px;
+
+  margin-bottom: 5px;
+}
+
+
+.access-summary-card strong {
+  color: #111827;
+
+  font-size: 24px;
+}
+
+
+.access-summary-success {
+  border-left:
+    4px solid #22c55e;
+}
+
+
+.access-summary-danger {
+  border-left:
+    4px solid #ef4444;
+}
+
+
+/* =============================================
+   TOOLBAR ACCESOS
+============================================= */
+
+.access-toolbar {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 18px;
+
+  gap: 15px;
+}
+
+
+.access-filters {
+  display: flex;
+
+  gap: 7px;
+
+  padding: 4px;
+
+  background: white;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 9px;
+}
+
+
+.filter-button {
+  border: 0;
+
+  background: transparent;
+
+  color: #6b7280;
+
+  padding:
+    8px 14px;
+
+  border-radius: 6px;
+
+  cursor: pointer;
+
+  font-weight: 600;
+
+  font-size: 12px;
+}
+
+
+.filter-button:hover {
+  background: #f3f4f6;
+}
+
+
+.filter-button.active {
+  background: #2563eb;
+
+  color: white;
+}
+
+
+.filter-button.active.success {
+  background: #16a34a;
+
+  color: white;
+}
+
+
+.filter-button.active.danger {
+  background: #dc2626;
+
+  color: white;
+}
+
+
+/* =============================================
+   LIMITE
+============================================= */
+
+.access-limit {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  color: #6b7280;
+
+  font-size: 12px;
+}
+
+
+.access-limit select {
+  padding:
+    7px 10px;
+
+  border:
+    1px solid #d1d5db;
+
+  border-radius: 7px;
+
+  background: white;
+
+  color: #374151;
+}
+
+
+/* =============================================
+   ELEMENTOS BITACORA
+============================================= */
+
+.access-id {
+  color: #6b7280;
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+
+.person-avatar.unknown {
+  background: #fee2e2;
+
+  color: #b91c1c;
+}
+
+
+.similarity-value {
+  font-family:
+    monospace;
+
+  font-weight: 600;
+
+  color: #374151;
+}
+
+
+.door-open {
+  color: #15803d;
+
+  font-size: 11px;
+
+  font-weight: 700;
+}
+
+
+.door-closed {
+  color: #6b7280;
+
+  font-size: 11px;
+
+  font-weight: 700;
+}
+
+
+/* =============================================
+   EMPTY STATE
+============================================= */
+
+.empty-state {
+  padding: 35px;
+
+  text-align: center;
+
+  color: #9ca3af;
+
+  font-size: 13px;
+}
+
+
+/* =============================================
+   RESPONSIVE ACCESOS
+============================================= */
+
+@media (
+  max-width: 850px
+) {
+
+  .access-summary {
+    grid-template-columns: 1fr;
+  }
+
+
+  .access-toolbar {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+
+  .access-filters {
+    overflow-x: auto;
+  }
+
+}
+
+/* =============================================
+   NOTIFICACIONES
+============================================= */
+
+.notification-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 16px;
+
+  margin-bottom: 18px;
+}
+
+
+.notification-summary-warning {
+  border-left:
+    4px solid #f59e0b;
+}
+
+
+.notification-toolbar {
+  display: flex;
+
+  align-items: flex-end;
+
+  gap: 18px;
+
+  margin-bottom: 18px;
+}
+
+
+.filter-label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+
+  font-weight: 600;
+}
+
+
+.notification-select {
+  min-width: 120px;
+
+  padding:
+    9px 11px;
+
+  border:
+    1px solid #d1d5db;
+
+  border-radius: 8px;
+
+  background: white;
+
+  color: #374151;
+}
+
+
+@media (
+  max-width: 900px
+) {
+
+  .notification-summary {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+
+  .notification-toolbar {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+}
+
+
+@media (
+  max-width: 600px
+) {
+
+  .notification-summary {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+/* =============================================
+   ENROLAMIENTO FACIAL
+============================================= */
+
+.enrollment-modal {
+  max-width: 720px;
+}
+
+
+.enrollment-camera {
+  position: relative;
+
+  width: 100%;
+
+  aspect-ratio: 16 / 9;
+
+  overflow: hidden;
+
+  background: #111827;
+
+  border-radius: 12px;
+
+  margin-bottom: 18px;
+}
+
+
+.enrollment-video {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  transform: scaleX(-1);
+}
+
+
+.camera-loading {
+  position: absolute;
+
+  inset: 0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  color: white;
+
+  font-size: 14px;
+}
+
+
+.hidden-canvas {
+  display: none;
+}
+
+
+/* =============================================
+   PROGRESO
+============================================= */
+
+.enrollment-progress {
+  margin-bottom: 18px;
+}
+
+
+.enrollment-progress-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 8px;
+
+  color: #374151;
+
+  font-size: 13px;
+}
+
+
+.progress-bar {
+  width: 100%;
+  height: 9px;
+
+  overflow: hidden;
+
+  background: #e5e7eb;
+
+  border-radius: 999px;
+}
+
+
+.progress-bar-fill {
+  height: 100%;
+
+  background: #2563eb;
+
+  border-radius: 999px;
+
+  transition: width 0.25s ease;
+}
+
+
+/* =============================================
+   INSTRUCCIONES
+============================================= */
+
+.enrollment-instruction {
+  padding: 14px 16px;
+
+  margin-bottom: 16px;
+
+  background: #f9fafb;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 9px;
+}
+
+
+.enrollment-instruction strong {
+  color: #111827;
+
+  font-size: 13px;
+}
+
+
+.enrollment-instruction p {
+  margin: 5px 0 0;
+
+  color: #4b5563;
+
+  font-size: 13px;
+}
+
+
+.enrollment-note {
+  margin-top: 16px;
+
+  color: #6b7280;
+
+  font-size: 12px;
+
+  line-height: 1.5;
+}
+
+
+.enrollment-message {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+
+
+.enroll-button {
+  border:
+    1px solid #2563eb;
+
+  background: #eff6ff;
+
+  color: #1d4ed8;
+
+  padding:
+    7px 11px;
+
+  border-radius: 7px;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  white-space: nowrap;
+}
+
+
+.enroll-button:hover {
+  background: #dbeafe;
+}
+
+
+/* =============================================
+   VALIDACION DE MUESTRA
+============================================= */
+
+.camera-validating {
+  position: absolute;
+
+  inset: 0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  background:
+    rgba(17, 24, 39, 0.55);
+
+  color: white;
+
+  font-size: 15px;
+  font-weight: 600;
+}
+
+
+.sample-valid-message {
+  margin-top: 14px;
+
+  padding: 11px 14px;
+
+  border-radius: 8px;
+
+  background: #dcfce7;
+
+  color: #15803d;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* =============================================
+   ACCIONES PERSONAS
+============================================= */
+
+.person-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+
+.action-button {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+
+  padding: 7px 10px;
+
+  border-radius: 7px;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+
+.action-button:hover {
+  background: #f3f4f6;
+}
+
+
+/* =============================================
+   DETALLE PERSONA
+============================================= */
+
+.person-detail-modal {
+  max-width: 720px;
+}
+
+
+.detail-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 14px;
+}
+
+
+.detail-item {
+  padding: 14px;
+
+  background: #f9fafb;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 8px;
+}
+
+
+.detail-item span {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+}
+
+
+.detail-item strong {
+  color: #111827;
+
+  font-size: 13px;
+
+  word-break: break-word;
+}
+
+
+.detail-section {
+  margin-top: 24px;
+}
+
+
+.detail-section h4 {
+  margin:
+    0 0 12px;
+
+  color: #111827;
+
+  font-size: 14px;
+}
+
+
+/* =============================================
+   FOOTER DETALLE
+============================================= */
+
+.person-detail-footer {
+  justify-content: space-between;
+}
+
+
+.detail-footer-right {
+  display: flex;
+  gap: 10px;
+}
+
+
+.danger-button {
+  border: 1px solid #fecaca;
+
+  background: #fef2f2;
+
+  color: #b91c1c;
+
+  padding: 10px 18px;
+
+  border-radius: 8px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.danger-button:hover {
+  background: #fee2e2;
+}
+
+
+.activate-button {
+  border: 1px solid #bbf7d0;
+
+  background: #f0fdf4;
+
+  color: #15803d;
+
+  padding: 10px 18px;
+
+  border-radius: 8px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.activate-button:hover {
+  background: #dcfce7;
+}
+
+
+@media (
+  max-width: 650px
+) {
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .person-detail-footer {
+    flex-direction: column;
+  }
+
+
+  .detail-footer-right {
+    width: 100%;
+    flex-direction: column;
+  }
+
+}

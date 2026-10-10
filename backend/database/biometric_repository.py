@@ -1,6 +1,10 @@
 from backend.database.connection import get_connection
 
 
+# =============================================
+# PERSONAS PENDIENTES DE BIOMETRIA
+# =============================================
+
 def get_pending_biometric_people():
     """
     Obtiene personas activas que todavía
@@ -60,6 +64,58 @@ def get_pending_biometric_people():
             return cursor.fetchall()
 
 
+# =============================================
+# PERSONA PARA ENROLAMIENTO WEB
+# =============================================
+
+def get_person_for_enrollment(
+    person_id
+):
+    """
+    Obtiene la información necesaria para
+    validar un enrolamiento biométrico.
+    """
+
+    query = """
+        SELECT
+            p.id,
+            p.codigo_biometrico,
+            p.nombre_completo,
+            p.tipo,
+            p.activo,
+
+            CASE
+                WHEN b.id IS NOT NULL
+                 AND b.activo = TRUE
+                THEN TRUE
+                ELSE FALSE
+            END AS biometria_configurada
+
+        FROM personas p
+
+        LEFT JOIN biometria b
+            ON b.persona_id = p.id
+            AND b.activo = TRUE
+
+        WHERE p.id = %s;
+    """
+
+    with get_connection() as connection:
+
+        with connection.cursor() as cursor:
+
+            cursor.execute(
+                query,
+                (person_id,)
+            )
+
+            return cursor.fetchone()
+
+
+# =============================================
+# SIGUIENTE CODIGO BIOMETRICO
+# =============================================
+
 def get_next_biometric_code():
     """
     Genera el siguiente código numérico:
@@ -98,6 +154,10 @@ def get_next_biometric_code():
             return result["codigo"]
 
 
+# =============================================
+# REGISTRAR BIOMETRIA
+# =============================================
+
 def register_person_biometrics(
     person_id,
     biometric_code,
@@ -120,7 +180,9 @@ def register_person_biometrics(
             cursor.execute(
                 """
                 UPDATE personas
+
                 SET codigo_biometrico = %s
+
                 WHERE id = %s
                   AND activo = TRUE;
                 """,
@@ -150,6 +212,7 @@ def register_person_biometrics(
                     cantidad_muestras,
                     activo
                 )
+
                 VALUES (
                     %s,
                     'MobileFaceNet',
@@ -162,10 +225,13 @@ def register_person_biometrics(
 
                 DO UPDATE SET
                     modelo = EXCLUDED.modelo,
+
                     template_path =
                         EXCLUDED.template_path,
+
                     cantidad_muestras =
                         EXCLUDED.cantidad_muestras,
+
                     activo = TRUE;
                 """,
                 (

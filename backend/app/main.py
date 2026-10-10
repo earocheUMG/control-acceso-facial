@@ -21,6 +21,18 @@ from backend.app.routes.viviendas import (
     router as viviendas_router
 )
 
+from backend.app.routes.notificaciones import (
+    router as notificaciones_router
+)
+
+from backend.app.routes.enrolamiento import (
+    router as enrolamiento_router
+)
+
+from backend.app.routes.personas_admin import (
+    router as personas_admin_router
+)
+
 
 # =============================================
 # APLICACION FASTAPI
@@ -77,6 +89,17 @@ app.include_router(
     viviendas_router
 )
 
+app.include_router(
+    notificaciones_router
+)
+
+app.include_router(
+    enrolamiento_router
+)
+
+app.include_router(
+    personas_admin_router
+)
 
 # =============================================
 # ENDPOINT RAIZ
