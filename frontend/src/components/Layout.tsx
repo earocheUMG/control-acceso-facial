@@ -25,10 +25,11 @@ function Layout() {
 
     logout();
 
+
     navigate(
       "/login",
       {
-        replace: true
+        replace: true,
       }
     );
 
@@ -39,6 +40,7 @@ function Layout() {
 
     <div className="app-layout">
 
+
       {/* =====================================
           SIDEBAR
       ====================================== */}
@@ -46,7 +48,9 @@ function Layout() {
       <aside className="sidebar">
 
 
-        {/* LOGO */}
+        {/* =================================
+            LOGO
+        ================================== */}
 
         <div className="sidebar-brand">
 
@@ -70,9 +74,9 @@ function Layout() {
         </div>
 
 
-        {/* ===================================
+        {/* =================================
             NAVEGACION
-        ==================================== */}
+        ================================== */}
 
         <nav className="sidebar-nav">
 
@@ -102,6 +106,32 @@ function Layout() {
 
 
           {/* =================================
+              CONTROL DE ACCESO
+              ADMIN + SEGURIDAD
+          ================================== */}
+
+          <NavLink
+            to="/control-acceso"
+            className={
+              ({ isActive }) =>
+                isActive
+                  ? "nav-item active"
+                  : "nav-item"
+            }
+          >
+
+            <span className="nav-icon">
+              ◎
+            </span>
+
+            <span>
+              Control de acceso
+            </span>
+
+          </NavLink>
+
+
+          {/* =================================
               SOLO ADMIN
           ================================== */}
 
@@ -110,6 +140,7 @@ function Layout() {
             && (
 
               <>
+
 
                 {/* PERSONAS */}
 
@@ -179,6 +210,7 @@ function Layout() {
 
                 </NavLink>
 
+
               </>
 
             )
@@ -188,6 +220,7 @@ function Layout() {
           {/* =================================
               ADMIN + SEGURIDAD
           ================================== */}
+
 
           {/* ACCESOS */}
 
@@ -234,21 +267,24 @@ function Layout() {
 
           </NavLink>
 
+
         </nav>
 
 
-        {/* ===================================
+        {/* =================================
             PARTE INFERIOR
-        ==================================== */}
+        ================================== */}
 
         <div className="sidebar-bottom">
 
 
-          {/* ESTADO */}
+          {/* ESTADO DEL SISTEMA */}
 
           <div className="system-status">
 
-            <span className="status-dot" />
+            <span
+              className="status-dot"
+            />
 
             <span>
               Sistema conectado
@@ -257,7 +293,7 @@ function Layout() {
           </div>
 
 
-          {/* USUARIO */}
+          {/* USUARIO ACTUAL */}
 
           <div className="sidebar-user">
 
@@ -301,13 +337,15 @@ function Layout() {
             Cerrar sesión
           </button>
 
+
         </div>
+
 
       </aside>
 
 
       {/* =====================================
-          CONTENIDO
+          CONTENIDO PRINCIPAL
       ====================================== */}
 
       <main className="main-content">
@@ -315,6 +353,7 @@ function Layout() {
         <Outlet />
 
       </main>
+
 
     </div>
 

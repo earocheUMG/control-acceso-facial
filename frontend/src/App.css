@@ -2289,3 +2289,351 @@ tbody tr:hover {
   padding: 7px 11px;
   font-size: 11px;
 }
+
+/* =============================================
+   CONTROL DE ACCESO
+============================================= */
+
+.control-access-grid {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(300px, 1fr);
+
+  gap: 22px;
+}
+
+
+.control-camera-panel,
+.recognition-result {
+  background: white;
+
+  border:
+    1px solid #e5e7eb;
+
+  border-radius: 14px;
+
+  overflow: hidden;
+}
+
+
+.control-camera {
+  position: relative;
+
+  aspect-ratio: 16 / 9;
+
+  overflow: hidden;
+
+  background: #111827;
+}
+
+
+.control-video {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  transform: scaleX(-1);
+}
+
+
+.face-guide {
+  position: absolute;
+
+  width: 42%;
+  height: 72%;
+
+  left: 50%;
+  top: 50%;
+
+  transform:
+    translate(
+      -50%,
+      -50%
+    );
+
+  border:
+    3px solid
+    rgba(
+      255,
+      255,
+      255,
+      0.7
+    );
+
+  border-radius: 50%;
+}
+
+
+.face-guide.recognized {
+  border-color: #22c55e;
+}
+
+
+.face-guide.rejected {
+  border-color: #ef4444;
+}
+
+
+.control-camera-footer {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 13px 16px;
+
+  color: #4b5563;
+
+  font-size: 12px;
+}
+
+
+.recognition-result {
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: center;
+
+  align-items: center;
+
+  min-height: 450px;
+
+  padding: 32px;
+
+  text-align: center;
+}
+
+
+.recognition-result.authorized {
+  border-top:
+    5px solid #22c55e;
+}
+
+
+.recognition-result.rejected {
+  border-top:
+    5px solid #ef4444;
+}
+
+
+.recognition-state {
+  width: 70px;
+  height: 70px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 18px;
+
+  border-radius: 50%;
+
+  background: #f3f4f6;
+
+  font-size: 32px;
+}
+
+
+.recognition-result.authorized
+.recognition-state {
+  background: #dcfce7;
+
+  color: #15803d;
+}
+
+
+.recognition-result.rejected
+.recognition-state {
+  background: #fee2e2;
+
+  color: #b91c1c;
+}
+
+
+.recognition-result h3 {
+  margin:
+    0 0 15px;
+
+  color: #111827;
+
+  font-size: 19px;
+}
+
+
+.recognized-person {
+  color: #111827;
+
+  font-size: 22px;
+
+  font-weight: 700;
+}
+
+
+.recognized-code,
+.recognized-type {
+  margin-top: 6px;
+
+  color: #6b7280;
+
+  font-size: 12px;
+}
+
+
+.recognition-help {
+  max-width: 280px;
+
+  color: #6b7280;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+.recognition-metric {
+  margin-top: 24px;
+
+  padding: 13px 28px;
+
+  background: #f9fafb;
+
+  border-radius: 8px;
+}
+
+
+.recognition-metric span {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+}
+
+
+.recognition-metric strong {
+  color: #111827;
+
+  font-family: monospace;
+
+  font-size: 18px;
+}
+
+
+.recognition-threshold {
+  margin-top: 14px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+}
+
+
+.recognition-preview-note {
+  margin-top: 25px;
+
+  padding: 12px;
+
+  background: #fffbeb;
+
+  border-radius: 8px;
+
+  color: #92400e;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+@media (
+  max-width: 1000px
+) {
+
+  .control-access-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+/* =============================================
+   CONFIRMACION DE RECONOCIMIENTO
+============================================= */
+
+.recognition-confirmation {
+  margin-top: 22px;
+  padding: 12px 20px;
+
+  background: #eff6ff;
+
+  border-radius: 8px;
+
+  color: #1d4ed8;
+
+  font-size: 12px;
+}
+
+
+.recognition-confirmation strong {
+  display: block;
+
+  margin-top: 5px;
+
+  font-size: 18px;
+}
+
+
+.door-status {
+  margin-top: 22px;
+
+  padding: 14px 22px;
+
+  border-radius: 8px;
+
+  font-weight: 700;
+
+  font-size: 13px;
+}
+
+
+.door-status.open {
+  background: #dcfce7;
+
+  color: #15803d;
+}
+
+
+.door-status.closed {
+  background: #f3f4f6;
+
+  color: #4b5563;
+}
+
+
+.recognition-rearm {
+  margin-top: 16px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+.recognition-rearm strong {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #111827;
+
+  font-size: 14px;
+}

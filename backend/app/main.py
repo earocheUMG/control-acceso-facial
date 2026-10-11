@@ -41,6 +41,10 @@ from backend.app.routes.system_users import (
     router as system_users_router
 )
 
+from backend.app.routes.control_acceso import (
+    router as control_acceso_router
+)
+
 # =============================================
 # APLICACION FASTAPI
 # =============================================
@@ -115,6 +119,10 @@ app.include_router(
 
 app.include_router(
     system_users_router
+)
+
+app.include_router(
+    control_acceso_router
 )
 
 # =============================================

@@ -1,6 +1,6 @@
 import {
   Route,
-  Routes
+  Routes,
 } from "react-router-dom";
 
 import Layout
@@ -11,6 +11,7 @@ import ProtectedRoute
 
 import AdminRoute
   from "./components/AdminRoute";
+
 
 import DashboardPage
   from "./pages/DashboardPage";
@@ -33,6 +34,10 @@ import UsuariosPage
 import LoginPage
   from "./pages/LoginPage";
 
+import ControlAccesoPage
+  from "./pages/ControlAccesoPage";
+
+
 import "./App.css";
 
 
@@ -41,6 +46,7 @@ function App() {
   return (
 
     <Routes>
+
 
       {/* =====================================
           LOGIN
@@ -55,30 +61,36 @@ function App() {
 
 
       {/* =====================================
-          SISTEMA AUTENTICADO
+          RUTAS AUTENTICADAS
       ====================================== */}
 
       <Route
         element={
-
           <ProtectedRoute>
 
             <Layout />
 
           </ProtectedRoute>
-
         }
       >
 
 
-        {/* ===================================
+        {/* =================================
             ADMIN + SEGURIDAD
-        ==================================== */}
+        ================================== */}
 
         <Route
           path="/"
           element={
             <DashboardPage />
+          }
+        />
+
+
+        <Route
+          path="/control-acceso"
+          element={
+            <ControlAccesoPage />
           }
         />
 
@@ -99,9 +111,9 @@ function App() {
         />
 
 
-        {/* ===================================
+        {/* =================================
             SOLO ADMIN
-        ==================================== */}
+        ================================== */}
 
         <Route
           path="/personas"
