@@ -1721,3 +1721,571 @@ tbody tr:hover {
   }
 
 }
+
+
+/* =============================================
+   LOGIN
+============================================= */
+
+.login-page {
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #111827,
+      #1f2937
+    );
+}
+
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+
+  padding: 38px;
+
+  background: white;
+
+  border-radius: 16px;
+
+  box-shadow:
+    0 25px 60px
+    rgba(0, 0, 0, 0.3);
+}
+
+
+.login-brand {
+  text-align: center;
+
+  margin-bottom: 30px;
+}
+
+
+.login-logo {
+  width: 58px;
+  height: 58px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin:
+    0 auto 15px;
+
+  border-radius: 14px;
+
+  background: #2563eb;
+
+  color: white;
+
+  font-size: 28px;
+}
+
+
+.login-brand h1 {
+  margin: 0;
+
+  color: #111827;
+
+  font-size: 25px;
+}
+
+
+.login-brand p {
+  margin:
+    7px 0 0;
+
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+
+.login-button {
+  width: 100%;
+
+  margin-top: 8px;
+
+  padding: 12px;
+
+  border: 0;
+
+  border-radius: 8px;
+
+  background: #2563eb;
+
+  color: white;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.login-button:hover {
+  background: #1d4ed8;
+}
+
+
+.login-button:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+}
+
+
+.login-error {
+  margin-bottom: 14px;
+
+  padding: 12px;
+
+  border-radius: 8px;
+
+  background: #fee2e2;
+
+  color: #b91c1c;
+
+  font-size: 12px;
+}
+
+
+.login-footer {
+  margin-top: 25px;
+
+  padding-top: 20px;
+
+  border-top:
+    1px solid #e5e7eb;
+
+  text-align: center;
+
+  color: #9ca3af;
+
+  font-size: 11px;
+}
+
+
+.auth-loading {
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #f3f4f6;
+
+  color: #6b7280;
+
+  font-size: 14px;
+}
+
+/* =============================================
+   USUARIO SIDEBAR
+============================================= */
+
+.sidebar-bottom {
+  margin-top: auto;
+
+  padding-top: 18px;
+
+  border-top:
+    1px solid rgba(
+      255,
+      255,
+      255,
+      0.08
+    );
+}
+
+
+.sidebar-user {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  margin-top: 16px;
+
+  padding: 10px;
+
+  border-radius: 9px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.05
+    );
+}
+
+
+.sidebar-user-avatar {
+  width: 36px;
+  height: 36px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #2563eb;
+
+  color: white;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+.sidebar-user-info {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+}
+
+
+.sidebar-user-info strong {
+  color: white;
+
+  font-size: 12px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+.sidebar-user-info span {
+  margin-top: 2px;
+
+  color: #9ca3af;
+
+  font-size: 10px;
+}
+
+
+/* =============================================
+   CERRAR SESION
+============================================= */
+
+.logout-button {
+  width: 100%;
+
+  margin-top: 9px;
+
+  padding: 9px 12px;
+
+  border:
+    1px solid rgba(
+      255,
+      255,
+      255,
+      0.12
+    );
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #d1d5db;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.logout-button:hover {
+  background:
+    rgba(
+      239,
+      68,
+      68,
+      0.12
+    );
+
+  border-color:
+    rgba(
+      239,
+      68,
+      68,
+      0.35
+    );
+
+  color: #fecaca;
+}
+
+/* =============================================
+   CORRECCION GENERAL DEL LAYOUT
+============================================= */
+
+.app-layout {
+  width: 100%;
+  min-height: 100vh;
+
+  display: flex;
+
+  background: #f4f6f8;
+}
+
+
+/* =============================================
+   SIDEBAR
+============================================= */
+
+.sidebar {
+  position: fixed;
+
+  top: 0;
+  left: 0;
+  bottom: 0;
+
+  width: 250px;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 22px 16px;
+
+  box-sizing: border-box;
+
+  background: #111827;
+
+  color: white;
+
+  z-index: 100;
+}
+
+
+.sidebar-brand {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 30px;
+}
+
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #2563eb;
+
+  color: white;
+
+  font-size: 20px;
+}
+
+
+.brand-text {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+}
+
+
+.brand-text strong {
+  color: white;
+
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+
+.brand-text span {
+  margin-top: 3px;
+
+  color: #9ca3af;
+
+  font-size: 11px;
+}
+
+
+/* =============================================
+   NAVEGACION
+============================================= */
+
+.sidebar-nav {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+
+.nav-item {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 10px 12px;
+
+  box-sizing: border-box;
+
+  border-radius: 7px;
+
+  color: #cbd5e1;
+
+  font-size: 13px;
+
+  text-decoration: none;
+}
+
+
+.nav-item:hover {
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.06
+    );
+
+  color: white;
+}
+
+
+.nav-item.active {
+  background: #2563eb;
+
+  color: white;
+}
+
+
+.nav-icon {
+  width: 18px;
+
+  flex-shrink: 0;
+
+  text-align: center;
+}
+
+
+/* =============================================
+   ZONA INFERIOR SIDEBAR
+============================================= */
+
+.sidebar-bottom {
+  margin-top: auto;
+
+  padding-top: 16px;
+
+  border-top:
+    1px solid
+    rgba(
+      255,
+      255,
+      255,
+      0.08
+    );
+}
+
+
+.system-status {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  color: #d1d5db;
+
+  font-size: 11px;
+}
+
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #22c55e;
+}
+
+
+/* =============================================
+   CONTENIDO PRINCIPAL
+============================================= */
+
+.main-content {
+  width:
+    calc(
+      100% - 250px
+    );
+
+  min-width: 0;
+
+  min-height: 100vh;
+
+  margin-left: 250px;
+
+  padding: 28px 32px;
+
+  box-sizing: border-box;
+}
+
+
+/* =============================================
+   RESPONSIVE
+============================================= */
+
+@media (
+  max-width: 900px
+) {
+
+  .sidebar {
+    width: 210px;
+  }
+
+
+  .main-content {
+    width:
+      calc(
+        100% - 210px
+      );
+
+    margin-left: 210px;
+
+    padding: 22px;
+  }
+
+}
+
+.compact-button {
+  padding: 7px 11px;
+  font-size: 11px;
+}

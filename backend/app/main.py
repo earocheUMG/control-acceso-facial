@@ -33,6 +33,13 @@ from backend.app.routes.personas_admin import (
     router as personas_admin_router
 )
 
+from backend.app.routes.auth import (
+    router as auth_router
+)
+
+from backend.app.routes.system_users import (
+    router as system_users_router
+)
 
 # =============================================
 # APLICACION FASTAPI
@@ -99,6 +106,15 @@ app.include_router(
 
 app.include_router(
     personas_admin_router
+)
+
+app.include_router(
+    auth_router
+)
+
+
+app.include_router(
+    system_users_router
 )
 
 # =============================================

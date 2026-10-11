@@ -3,6 +3,10 @@ import {
   useState,
 } from "react";
 
+import {
+  apiFetch
+} from "../services/api";
+
 
 interface Notification {
   id: number;
@@ -45,6 +49,61 @@ type StatusFilter =
   | "ENVIADA"
   | "PENDIENTE"
   | "ERROR";
+
+
+async function fetchNotifications(
+  typeFilter: TypeFilter,
+  statusFilter: StatusFilter,
+  limit: number
+): Promise<NotificationResponse> {
+
+  let url =
+    `http://127.0.0.1:8000/api/notificaciones?limit=${limit}`;
+
+
+  if (
+    typeFilter !== "TODOS"
+  ) {
+
+    url +=
+      `&tipo=${typeFilter}`;
+
+  }
+
+
+  if (
+    statusFilter !== "TODOS"
+  ) {
+
+    url +=
+      `&estado=${statusFilter}`;
+
+  }
+
+
+  const response =
+    await apiFetch(
+      url
+    );
+
+
+  const result =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      typeof result.detail === "string"
+        ? result.detail
+        : "No fue posible consultar las notificaciones."
+    );
+
+  }
+
+
+  return result;
+}
 
 
 function formatDate(
@@ -113,64 +172,123 @@ function NotificacionesPage() {
   );
 
 
-  // ==========================================
-  // CONSULTAR NOTIFICACIONES
-  // ==========================================
+  useEffect(() => {
 
-  const loadNotifications =
+    let active = true;
+
+
+    const request =
+      async () => {
+
+        try {
+
+          const data =
+            await fetchNotifications(
+              typeFilter,
+              statusFilter,
+              limit
+            );
+
+
+          if (!active) {
+            return;
+          }
+
+
+          setNotifications(
+            data.notificaciones
+          );
+
+
+          setError(
+            null
+          );
+
+
+        } catch (err) {
+
+          if (!active) {
+            return;
+          }
+
+
+          if (
+            err instanceof Error
+          ) {
+
+            setError(
+              err.message
+            );
+
+          }
+
+
+        } finally {
+
+          if (active) {
+
+            setLoading(
+              false
+            );
+
+          }
+
+        }
+
+      };
+
+
+    void request();
+
+
+    const interval =
+      window.setInterval(
+        () => {
+
+          void request();
+
+        },
+        10000
+      );
+
+
+    return () => {
+
+      active = false;
+
+      window.clearInterval(
+        interval
+      );
+
+    };
+
+  }, [
+    typeFilter,
+    statusFilter,
+    limit
+  ]);
+
+
+  const refreshNotifications =
     async () => {
 
       try {
 
-        setError(null);
-
-
-        let url =
-          `http://127.0.0.1:8000/api/notificaciones?limit=${limit}`;
-
-
-        if (
-          typeFilter !== "TODOS"
-        ) {
-
-          url +=
-            `&tipo=${typeFilter}`;
-
-        }
-
-
-        if (
-          statusFilter !== "TODOS"
-        ) {
-
-          url +=
-            `&estado=${statusFilter}`;
-
-        }
-
-
-        const response =
-          await fetch(
-            url
+        const data =
+          await fetchNotifications(
+            typeFilter,
+            statusFilter,
+            limit
           );
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            "No fue posible consultar las notificaciones."
-          );
-
-        }
-
-
-        const data:
-          NotificationResponse =
-            await response.json();
 
 
         setNotifications(
           data.notificaciones
+        );
+
+
+        setError(
+          null
         );
 
 
@@ -186,81 +304,34 @@ function NotificacionesPage() {
 
         }
 
-
-      } finally {
-
-        setLoading(false);
-
       }
 
     };
 
 
-  // ==========================================
-  // RECARGA
-  // ==========================================
-
-  useEffect(() => {
-
-    setLoading(true);
-
-    loadNotifications();
-
-
-    const interval =
-      window.setInterval(
-        loadNotifications,
-        10000
-      );
-
-
-    return () => {
-
-      window.clearInterval(
-        interval
-      );
-
-    };
-
-  }, [
-    typeFilter,
-    statusFilter,
-    limit
-  ]);
-
-
-  // ==========================================
-  // CONTADORES
-  // ==========================================
-
   const sentCount =
     notifications.filter(
       (item) =>
-        item.estado
-        === "ENVIADA"
+        item.estado === "ENVIADA"
     ).length;
 
 
   const pendingCount =
     notifications.filter(
       (item) =>
-        item.estado
-        === "PENDIENTE"
+        item.estado === "PENDIENTE"
     ).length;
 
 
   const errorCount =
     notifications.filter(
       (item) =>
-        item.estado
-        === "ERROR"
+        item.estado === "ERROR"
     ).length;
 
 
   return (
     <>
-
-      {/* HEADER */}
 
       <header className="topbar">
 
@@ -279,9 +350,10 @@ function NotificacionesPage() {
 
 
         <button
+          type="button"
           className="refresh-button"
           onClick={
-            loadNotifications
+            refreshNotifications
           }
         >
           Actualizar
@@ -289,8 +361,6 @@ function NotificacionesPage() {
 
       </header>
 
-
-      {/* RESUMEN */}
 
       <section className="notification-summary">
 
@@ -363,8 +433,6 @@ function NotificacionesPage() {
       </section>
 
 
-      {/* FILTROS */}
-
       <section className="notification-toolbar">
 
         <div>
@@ -377,6 +445,7 @@ function NotificacionesPage() {
           <div className="access-filters">
 
             <button
+              type="button"
               className={
                 typeFilter === "TODOS"
                   ? "filter-button active"
@@ -394,6 +463,7 @@ function NotificacionesPage() {
 
 
             <button
+              type="button"
               className={
                 typeFilter === "INGRESO"
                   ? "filter-button active success"
@@ -411,6 +481,7 @@ function NotificacionesPage() {
 
 
             <button
+              type="button"
               className={
                 typeFilter
                 === "ALERTA_SEGURIDAD"
@@ -438,34 +509,36 @@ function NotificacionesPage() {
             Estado
           </span>
 
-
           <select
             className="notification-select"
             value={
               statusFilter
             }
-           onChange={(event) => {
+            onChange={
+              (event) => {
 
-  const value =
-    event.target.value;
+                const value =
+                  event.target.value;
 
-  if (
-    value === "TODOS"
-    ||
-    value === "ENVIADA"
-    ||
-    value === "PENDIENTE"
-    ||
-    value === "ERROR"
-  ) {
 
-    setStatusFilter(
-      value
-    );
+                if (
+                  value === "TODOS"
+                  ||
+                  value === "ENVIADA"
+                  ||
+                  value === "PENDIENTE"
+                  ||
+                  value === "ERROR"
+                ) {
 
-  }
+                  setStatusFilter(
+                    value
+                  );
 
-}}
+                }
+
+              }
+            }
           >
 
             <option value="TODOS">
@@ -495,7 +568,6 @@ function NotificacionesPage() {
             Mostrar
           </span>
 
-
           <select
             className="notification-select"
             value={
@@ -511,21 +583,10 @@ function NotificacionesPage() {
             }
           >
 
-            <option value={10}>
-              10
-            </option>
-
-            <option value={25}>
-              25
-            </option>
-
-            <option value={50}>
-              50
-            </option>
-
-            <option value={100}>
-              100
-            </option>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
 
           </select>
 
@@ -534,23 +595,23 @@ function NotificacionesPage() {
       </section>
 
 
-      {/* MENSAJES */}
-
       {error && (
+
         <div className="error-message">
           {error}
         </div>
+
       )}
 
 
       {loading && (
+
         <div className="message">
           Cargando notificaciones...
         </div>
+
       )}
 
-
-      {/* TABLA */}
 
       {!loading && !error && (
 
@@ -582,41 +643,15 @@ function NotificacionesPage() {
 
                 <tr>
 
-                  <th>
-                    ID
-                  </th>
-
-                  <th>
-                    Tipo
-                  </th>
-
-                  <th>
-                    Persona
-                  </th>
-
-                  <th>
-                    Destinatario
-                  </th>
-
-                  <th>
-                    Estado
-                  </th>
-
-                  <th>
-                    Acceso
-                  </th>
-
-                  <th>
-                    Punto
-                  </th>
-
-                  <th>
-                    Creada
-                  </th>
-
-                  <th>
-                    Enviada
-                  </th>
+                  <th>ID</th>
+                  <th>Tipo</th>
+                  <th>Persona</th>
+                  <th>Destinatario</th>
+                  <th>Estado</th>
+                  <th>Acceso</th>
+                  <th>Punto</th>
+                  <th>Creada</th>
+                  <th>Enviada</th>
 
                 </tr>
 
@@ -638,18 +673,11 @@ function NotificacionesPage() {
                         <td>
 
                           <span className="access-id">
-
-                            #
-                            {
-                              notification.id
-                            }
-
+                            #{notification.id}
                           </span>
 
                         </td>
 
-
-                        {/* TIPO */}
 
                         <td>
 
@@ -657,28 +685,22 @@ function NotificacionesPage() {
                             className={
                               notification.tipo
                               === "INGRESO"
-                                ?
-                                  "badge badge-info"
-                                :
-                                  "badge badge-danger"
+                                ? "badge badge-info"
+                                : "badge badge-danger"
                             }
                           >
 
                             {
                               notification.tipo
                               === "INGRESO"
-                                ?
-                                  "INGRESO"
-                                :
-                                  "ALERTA"
+                                ? "INGRESO"
+                                : "ALERTA"
                             }
 
                           </span>
 
                         </td>
 
-
-                        {/* PERSONA */}
 
                         <td>
 
@@ -694,10 +716,8 @@ function NotificacionesPage() {
                             {
                               notification
                                 .codigo_biometrico
-                              ?
-                                `Código ${notification.codigo_biometrico}`
-                              :
-                                "Sin identificar"
+                              ? `Código ${notification.codigo_biometrico}`
+                              : "Sin identificar"
                             }
 
                           </div>
@@ -705,19 +725,13 @@ function NotificacionesPage() {
                         </td>
 
 
-                        {/* DESTINATARIO */}
-
                         <td>
-
                           {
                             notification
                               .destinatario_email
                           }
-
                         </td>
 
-
-                        {/* ESTADO */}
 
                         <td>
 
@@ -725,15 +739,11 @@ function NotificacionesPage() {
                             className={
                               notification.estado
                               === "ENVIADA"
-                                ?
-                                  "badge badge-success"
-                                :
-                              notification.estado
-                              === "ERROR"
-                                ?
-                                  "badge badge-danger"
-                                :
-                                  "badge badge-warning"
+                                ? "badge badge-success"
+                                : notification.estado
+                                  === "ERROR"
+                                  ? "badge badge-danger"
+                                  : "badge badge-warning"
                             }
                           >
 
@@ -745,8 +755,6 @@ function NotificacionesPage() {
 
                         </td>
 
-
-                        {/* ACCESO */}
 
                         <td>
 
@@ -755,10 +763,8 @@ function NotificacionesPage() {
                               notification
                                 .acceso_resultado
                               === "AUTORIZADO"
-                                ?
-                                  "badge badge-success"
-                                :
-                                  "badge badge-danger"
+                                ? "badge badge-success"
+                                : "badge badge-danger"
                             }
                           >
 
@@ -772,43 +778,31 @@ function NotificacionesPage() {
                         </td>
 
 
-                        {/* PUNTO */}
-
                         <td>
-
                           {
                             notification
                               .punto_acceso
                           }
-
                         </td>
 
 
-                        {/* CREACION */}
-
                         <td>
-
                           {
                             formatDate(
                               notification
                                 .creado_en
                             )
                           }
-
                         </td>
 
 
-                        {/* ENVIO */}
-
                         <td>
-
                           {
                             formatDate(
                               notification
                                 .enviado_en
                             )
                           }
-
                         </td>
 
                       </tr>
@@ -823,29 +817,13 @@ function NotificacionesPage() {
 
           </div>
 
-
-          {
-            notifications.length
-            === 0
-            && (
-
-              <div className="empty-state">
-
-                No existen
-                notificaciones para
-                los filtros seleccionados.
-
-              </div>
-
-            )
-          }
-
         </section>
 
       )}
 
     </>
   );
+
 }
 
 

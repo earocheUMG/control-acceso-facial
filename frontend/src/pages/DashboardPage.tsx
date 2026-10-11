@@ -1,7 +1,11 @@
 import {
   useEffect,
-  useState
+  useState,
 } from "react";
+
+import {
+  apiFetch
+} from "../services/api";
 
 
 interface DashboardSummary {
@@ -14,30 +18,55 @@ interface DashboardSummary {
 }
 
 
-interface Access {
+interface RecentAccess {
   id: number;
   fecha_hora: string;
   resultado: string;
   similitud: number | null;
   nombre_completo: string | null;
-  tipo_persona: string | null;
+  tipo: string | null;
   punto_acceso: string;
 }
 
 
 interface DashboardResponse {
   resumen: DashboardSummary;
-  ultimos_accesos: Access[];
+  ultimos_accesos: RecentAccess[];
 }
 
 
-const API_URL =
-  "http://127.0.0.1:8000/api/dashboard/resumen";
+async function fetchDashboard():
+Promise<DashboardResponse> {
+
+  const response =
+    await apiFetch(
+      "http://127.0.0.1:8000/api/dashboard/resumen"
+    );
+
+
+  const result =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      typeof result.detail === "string"
+        ? result.detail
+        : "No fue posible consultar el dashboard."
+    );
+
+  }
+
+
+  return result;
+}
 
 
 function formatDate(
-  date: string
+  value: string
 ) {
+
   return new Intl.DateTimeFormat(
     "es-GT",
     {
@@ -45,54 +74,151 @@ function formatDate(
       timeStyle: "medium",
     }
   ).format(
-    new Date(date)
+    new Date(value)
   );
+
 }
 
 
 function DashboardPage() {
 
-  const [data, setData] =
-    useState<DashboardResponse | null>(
-      null
-    );
-
-  const [error, setError] =
-    useState<string | null>(
-      null
-    );
-
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    data,
+    setData
+  ] = useState<DashboardResponse | null>(
+    null
+  );
 
 
-  const loadDashboard =
+  const [
+    loading,
+    setLoading
+  ] = useState(true);
+
+
+  const [
+    error,
+    setError
+  ] = useState<string | null>(
+    null
+  );
+
+
+  // ==========================================
+  // CARGA + REFRESCO AUTOMATICO
+  // ==========================================
+
+  useEffect(() => {
+
+    let active = true;
+
+
+    const requestDashboard =
+      async () => {
+
+        try {
+
+          const result =
+            await fetchDashboard();
+
+
+          if (!active) {
+            return;
+          }
+
+
+          setData(
+            result
+          );
+
+
+          setError(
+            null
+          );
+
+
+        } catch (err) {
+
+          if (!active) {
+            return;
+          }
+
+
+          if (
+            err instanceof Error
+          ) {
+
+            setError(
+              err.message
+            );
+
+          }
+
+
+        } finally {
+
+          if (active) {
+
+            setLoading(
+              false
+            );
+
+          }
+
+        }
+
+      };
+
+
+    void requestDashboard();
+
+
+    const interval =
+      window.setInterval(
+        () => {
+
+          void requestDashboard();
+
+        },
+        10000
+      );
+
+
+    return () => {
+
+      active = false;
+
+      window.clearInterval(
+        interval
+      );
+
+    };
+
+  }, []);
+
+
+  // ==========================================
+  // ACTUALIZACION MANUAL
+  // ==========================================
+
+  const refreshDashboard =
     async () => {
 
       try {
 
-        setError(null);
+        setError(
+          null
+        );
 
-        const response =
-          await fetch(
-            API_URL
-          );
 
-        if (!response.ok) {
+        const result =
+          await fetchDashboard();
 
-          throw new Error(
-            "No fue posible consultar la API."
-          );
-
-        }
-
-        const result:
-          DashboardResponse =
-            await response.json();
 
         setData(
           result
         );
+
 
       } catch (err) {
 
@@ -104,44 +230,11 @@ function DashboardPage() {
             err.message
           );
 
-        } else {
-
-          setError(
-            "Ocurrió un error inesperado."
-          );
-
         }
-
-      } finally {
-
-        setLoading(
-          false
-        );
 
       }
 
     };
-
-
-  useEffect(() => {
-
-    loadDashboard();
-
-    const interval =
-      window.setInterval(
-        loadDashboard,
-        10000
-      );
-
-    return () => {
-
-      window.clearInterval(
-        interval
-      );
-
-    };
-
-  }, []);
 
 
   return (
@@ -156,17 +249,18 @@ function DashboardPage() {
           </h2>
 
           <p>
-            Sistema de Control de
-            Acceso Facial
+            Resumen del sistema
+            de control de acceso
           </p>
 
         </div>
 
 
         <button
+          type="button"
           className="refresh-button"
           onClick={
-            loadDashboard
+            refreshDashboard
           }
         >
           Actualizar
@@ -175,180 +269,132 @@ function DashboardPage() {
       </header>
 
 
-      {loading && (
-        <div className="message">
-          Cargando información...
-        </div>
-      )}
-
-
       {error && (
+
         <div className="error-message">
           {error}
         </div>
+
       )}
 
 
-      {data && (
+      {loading && (
+
+        <div className="message">
+          Cargando dashboard...
+        </div>
+
+      )}
+
+
+      {!loading && data && (
+
         <>
 
-          <section className="stats-grid">
+          <section className="access-summary">
 
-            <article className="stat-card">
+            <article className="access-summary-card">
 
-              <div className="stat-icon">
-                👤
-              </div>
+              <span>
+                Personas activas
+              </span>
 
-              <div>
-
-                <span className="stat-label">
-                  Personas activas
-                </span>
-
-                <strong>
-                  {
-                    data.resumen
-                      .personas_activas
-                  }
-                </strong>
-
-              </div>
+              <strong>
+                {
+                  data.resumen
+                    .personas_activas
+                }
+              </strong>
 
             </article>
 
 
-            <article className="stat-card">
+            <article className="access-summary-card">
 
-              <div className="stat-icon">
-                🏠
-              </div>
+              <span>
+                Viviendas
+              </span>
 
-              <div>
-
-                <span className="stat-label">
-                  Viviendas
-                </span>
-
-                <strong>
-                  {
-                    data.resumen
-                      .viviendas_activas
-                  }
-                </strong>
-
-              </div>
+              <strong>
+                {
+                  data.resumen
+                    .viviendas_activas
+                }
+              </strong>
 
             </article>
 
 
-            <article className="stat-card">
+            <article className="access-summary-card">
 
-              <div className="stat-icon">
-                ↔
-              </div>
+              <span>
+                Accesos hoy
+              </span>
 
-              <div>
-
-                <span className="stat-label">
-                  Accesos hoy
-                </span>
-
-                <strong>
-                  {
-                    data.resumen
-                      .accesos_hoy
-                  }
-                </strong>
-
-              </div>
+              <strong>
+                {
+                  data.resumen
+                    .accesos_hoy
+                }
+              </strong>
 
             </article>
 
 
             <article
               className="
-                stat-card
-                authorized
+                access-summary-card
+                access-summary-success
               "
             >
 
-              <div className="stat-icon">
-                ✓
-              </div>
+              <span>
+                Autorizados
+              </span>
 
-              <div>
-
-                <span className="stat-label">
-                  Autorizados
-                </span>
-
-                <strong>
-                  {
-                    data.resumen
-                      .autorizados_hoy
-                  }
-                </strong>
-
-              </div>
+              <strong>
+                {
+                  data.resumen
+                    .autorizados_hoy
+                }
+              </strong>
 
             </article>
 
 
             <article
               className="
-                stat-card
-                rejected
+                access-summary-card
+                access-summary-danger
               "
             >
 
-              <div className="stat-icon">
-                !
-              </div>
+              <span>
+                Rechazados
+              </span>
 
-              <div>
-
-                <span className="stat-label">
-                  Rechazados
-                </span>
-
-                <strong>
-                  {
-                    data.resumen
-                      .rechazados_hoy
-                  }
-                </strong>
-
-              </div>
+              <strong>
+                {
+                  data.resumen
+                    .rechazados_hoy
+                }
+              </strong>
 
             </article>
 
 
-            <article
-              className="
-                stat-card
-                notification
-              "
-            >
+            <article className="access-summary-card">
 
-              <div className="stat-icon">
-                ✉
-              </div>
+              <span>
+                Errores de notificación
+              </span>
 
-              <div>
-
-                <span className="stat-label">
-                  Errores de notificación
-                </span>
-
-                <strong>
-                  {
-                    data.resumen
-                      .notificaciones_error
-                  }
-                </strong>
-
-              </div>
+              <strong>
+                {
+                  data.resumen
+                    .notificaciones_error
+                }
+              </strong>
 
             </article>
 
@@ -367,7 +413,7 @@ function DashboardPage() {
 
                 <p>
                   Actividad reciente
-                  registrada por el sistema
+                  del sistema
                 </p>
 
               </div>
@@ -435,33 +481,12 @@ function DashboardPage() {
 
                           <td>
 
-                            <div className="person-cell">
-
-                              <div className="person-avatar">
-
-                                {
-                                  access
-                                    .nombre_completo
-                                    ?.charAt(0)
-                                    .toUpperCase()
-                                  ?? "?"
-                                }
-
-                              </div>
-
-
-                              <strong>
-
-                                {
-                                  access
-                                    .nombre_completo
-                                  ??
-                                  "Persona desconocida"
-                                }
-
-                              </strong>
-
-                            </div>
+                            {
+                              access
+                                .nombre_completo
+                              ??
+                              "Desconocido"
+                            }
 
                           </td>
 
@@ -469,9 +494,9 @@ function DashboardPage() {
                           <td>
 
                             {
-                              access
-                                .tipo_persona
-                              ?? "N/A"
+                              access.tipo
+                              ??
+                              "-"
                             }
 
                           </td>
@@ -483,10 +508,8 @@ function DashboardPage() {
                               className={
                                 access.resultado
                                 === "AUTORIZADO"
-                                  ?
-                                    "badge badge-success"
-                                  :
-                                    "badge badge-danger"
+                                  ? "badge badge-success"
+                                  : "badge badge-danger"
                               }
                             >
 
@@ -504,12 +527,10 @@ function DashboardPage() {
                             {
                               access.similitud
                               !== null
-                                ?
-                                  Number(
+                                ? Number(
                                     access.similitud
                                   ).toFixed(3)
-                                :
-                                  "N/A"
+                                : "-"
                             }
 
                           </td>
@@ -529,8 +550,7 @@ function DashboardPage() {
 
                             {
                               formatDate(
-                                access
-                                  .fecha_hora
+                                access.fecha_hora
                               )
                             }
 
@@ -551,10 +571,12 @@ function DashboardPage() {
           </section>
 
         </>
+
       )}
 
     </>
   );
+
 }
 
 

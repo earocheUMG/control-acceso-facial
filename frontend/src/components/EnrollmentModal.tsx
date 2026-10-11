@@ -4,6 +4,9 @@ import {
   useState,
 } from "react";
 
+import {
+  apiFetch
+} from "../services/api";
 
 interface EnrollmentPerson {
   id: number;
@@ -458,7 +461,7 @@ function EnrollmentModal({
 
 
       const response =
-        await fetch(
+        await apiFetch(
           `http://127.0.0.1:8000/api/personas/${person.id}/enrolamiento/validar-muestra`,
           {
             method: "POST",
@@ -715,7 +718,7 @@ function EnrollmentModal({
 
 
         const response =
-          await fetch(
+          await apiFetch(
             `http://127.0.0.1:8000/api/personas/${person.id}/enrolamiento`,
             {
               method: "POST",

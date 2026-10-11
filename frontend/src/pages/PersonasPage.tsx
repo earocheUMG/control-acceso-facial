@@ -1,11 +1,18 @@
 import {
-  FormEvent,
   useEffect,
   useState,
 } from "react";
 
+import type {
+  FormEvent,
+} from "react";
+
 import EnrollmentModal
   from "../components/EnrollmentModal";
+
+import {
+  apiFetch
+} from "../services/api";
 
 
 interface Person {
@@ -100,6 +107,91 @@ const initialForm: PersonForm = {
 };
 
 
+async function fetchPeople():
+Promise<PeopleResponse> {
+
+  const response =
+    await apiFetch(
+      "http://127.0.0.1:8000/api/personas"
+    );
+
+
+  const result =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      typeof result.detail === "string"
+        ? result.detail
+        : "No fue posible consultar las personas."
+    );
+
+  }
+
+
+  return result;
+}
+
+
+async function fetchHouses():
+Promise<HousesResponse> {
+
+  const response =
+    await apiFetch(
+      "http://127.0.0.1:8000/api/viviendas"
+    );
+
+
+  const result =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      typeof result.detail === "string"
+        ? result.detail
+        : "No fue posible consultar las viviendas."
+    );
+
+  }
+
+
+  return result;
+}
+
+
+async function fetchPersonDetail(
+  personId: number
+): Promise<PersonDetailResponse> {
+
+  const response =
+    await apiFetch(
+      `http://127.0.0.1:8000/api/personas/${personId}/detalle`
+    );
+
+
+  const result =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      typeof result.detail === "string"
+        ? result.detail
+        : "No fue posible consultar el detalle."
+    );
+
+  }
+
+
+  return result;
+}
+
+
 function formatDate(
   value: string | null
 ) {
@@ -107,6 +199,7 @@ function formatDate(
   if (!value) {
     return "-";
   }
+
 
   return new Intl.DateTimeFormat(
     "es-GT",
@@ -123,10 +216,6 @@ function formatDate(
 
 function PersonasPage() {
 
-  // ==========================================
-  // LISTADOS
-  // ==========================================
-
   const [
     people,
     setPeople
@@ -138,10 +227,6 @@ function PersonasPage() {
     setHouses
   ] = useState<House[]>([]);
 
-
-  // ==========================================
-  // ESTADO GENERAL
-  // ==========================================
 
   const [
     loading,
@@ -165,10 +250,6 @@ function PersonasPage() {
   );
 
 
-  // ==========================================
-  // CREAR PERSONA
-  // ==========================================
-
   const [
     showCreateModal,
     setShowCreateModal
@@ -189,10 +270,6 @@ function PersonasPage() {
   );
 
 
-  // ==========================================
-  // ENROLAMIENTO
-  // ==========================================
-
   const [
     enrollmentPerson,
     setEnrollmentPerson
@@ -200,10 +277,6 @@ function PersonasPage() {
     null
   );
 
-
-  // ==========================================
-  // DETALLE / EDICION
-  // ==========================================
 
   const [
     personDetail,
@@ -245,176 +318,143 @@ function PersonasPage() {
   ] = useState(false);
 
 
-  // ==========================================
-  // CARGAR PERSONAS
-  // ==========================================
-
-  const loadPeople =
-    async () => {
-
-      try {
-
-        const response =
-          await fetch(
-            "http://127.0.0.1:8000/api/personas"
-          );
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            "No fue posible consultar las personas."
-          );
-
-        }
-
-
-        const data:
-          PeopleResponse =
-            await response.json();
-
-
-        setPeople(
-          data.personas
-        );
-
-
-      } catch (err) {
-
-        if (
-          err instanceof Error
-        ) {
-
-          setError(
-            err.message
-          );
-
-        }
-
-      }
-
-    };
-
-
-  // ==========================================
-  // CARGAR VIVIENDAS
-  // ==========================================
-
-  const loadHouses =
-    async () => {
-
-      try {
-
-        const response =
-          await fetch(
-            "http://127.0.0.1:8000/api/viviendas"
-          );
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            "No fue posible consultar las viviendas."
-          );
-
-        }
-
-
-        const data:
-          HousesResponse =
-            await response.json();
-
-
-        setHouses(
-          data.viviendas
-        );
-
-
-      } catch (err) {
-
-        if (
-          err instanceof Error
-        ) {
-
-          setError(
-            err.message
-          );
-
-        }
-
-      }
-
-    };
-
-
-  // ==========================================
-  // CARGA GENERAL
-  // ==========================================
-
-  const loadData =
-    async () => {
-
-      setLoading(
-        true
-      );
-
-
-      setError(
-        null
-      );
-
-
-      await Promise.all([
-        loadPeople(),
-        loadHouses(),
-      ]);
-
-
-      setLoading(
-        false
-      );
-
-    };
-
-
   useEffect(() => {
 
-    loadData();
+    let active = true;
+
+
+    Promise.all([
+      fetchPeople(),
+      fetchHouses(),
+    ])
+      .then(
+        ([
+          peopleData,
+          housesData,
+        ]) => {
+
+          if (!active) {
+            return;
+          }
+
+
+          setPeople(
+            peopleData.personas
+          );
+
+
+          setHouses(
+            housesData.viviendas
+          );
+
+
+          setError(
+            null
+          );
+
+
+          setLoading(
+            false
+          );
+
+        }
+      )
+      .catch(
+        (err) => {
+
+          if (!active) {
+            return;
+          }
+
+
+          if (
+            err instanceof Error
+          ) {
+
+            setError(
+              err.message
+            );
+
+          }
+
+
+          setLoading(
+            false
+          );
+
+        }
+      );
+
+
+    return () => {
+
+      active = false;
+
+    };
 
   }, []);
 
 
-  // ==========================================
-  // ABRIR CREAR PERSONA
-  // ==========================================
+  const refreshPeople =
+    async () => {
 
-  const openCreateModal = () => {
-
-    setForm(
-      initialForm
-    );
+      const data =
+        await fetchPeople();
 
 
-    setError(
-      null
-    );
-
-
-    setSuccess(
-      null
-    );
-
-
-    setShowCreateModal(
-      true
-    );
+      setPeople(
+        data.personas
+      );
 
   };
 
 
-  // ==========================================
-  // CAMBIO TIPO - CREACION
-  // ==========================================
+  const refreshAll =
+    async () => {
+
+      try {
+
+        const [
+          peopleData,
+          housesData,
+        ] =
+          await Promise.all([
+            fetchPeople(),
+            fetchHouses(),
+          ]);
+
+
+        setPeople(
+          peopleData.personas
+        );
+
+
+        setHouses(
+          housesData.viviendas
+        );
+
+
+        setError(
+          null
+        );
+
+
+      } catch (err) {
+
+        if (
+          err instanceof Error
+        ) {
+
+          setError(
+            err.message
+          );
+
+        }
+
+      }
+
+    };
+
 
   const handleTypeChange =
     (
@@ -443,26 +483,12 @@ function PersonasPage() {
     };
 
 
-  // ==========================================
-  // CREAR PERSONA
-  // ==========================================
-
   const handleSubmit =
     async (
       event: FormEvent
     ) => {
 
       event.preventDefault();
-
-
-      setError(
-        null
-      );
-
-
-      setSuccess(
-        null
-      );
 
 
       if (
@@ -491,40 +517,13 @@ function PersonasPage() {
         );
 
 
-        const payload = {
-
-          nombre_completo:
-            form.nombre_completo.trim(),
-
-          tipo:
-            form.tipo,
-
-          email:
-            form.email.trim()
-              || null,
-
-          telefono:
-            form.telefono.trim()
-              || null,
-
-          vivienda_id:
-            form.tipo === "SEGURIDAD"
-              ? null
-              : Number(
-                  form.vivienda_id
-                ),
-
-          es_responsable_notificacion:
-            form.tipo === "RESIDENTE"
-              ? form
-                  .es_responsable_notificacion
-              : false,
-
-        };
+        setError(
+          null
+        );
 
 
         const response =
-          await fetch(
+          await apiFetch(
             "http://127.0.0.1:8000/api/personas",
             {
               method: "POST",
@@ -535,9 +534,36 @@ function PersonasPage() {
               },
 
               body:
-                JSON.stringify(
-                  payload
-                ),
+                JSON.stringify({
+                  nombre_completo:
+                    form
+                      .nombre_completo
+                      .trim(),
+
+                  tipo:
+                    form.tipo,
+
+                  email:
+                    form.email.trim()
+                    || null,
+
+                  telefono:
+                    form.telefono.trim()
+                    || null,
+
+                  vivienda_id:
+                    form.tipo === "SEGURIDAD"
+                      ? null
+                      : Number(
+                          form.vivienda_id
+                        ),
+
+                  es_responsable_notificacion:
+                    form.tipo === "RESIDENTE"
+                      ? form
+                          .es_responsable_notificacion
+                      : false,
+                }),
             }
           );
 
@@ -548,23 +574,10 @@ function PersonasPage() {
 
         if (!response.ok) {
 
-          let message =
-            "No fue posible crear la persona.";
-
-
-          if (
-            typeof result.detail
-            === "string"
-          ) {
-
-            message =
-              result.detail;
-
-          }
-
-
           throw new Error(
-            message
+            typeof result.detail === "string"
+              ? result.detail
+              : "No fue posible crear la persona."
           );
 
         }
@@ -577,12 +590,11 @@ function PersonasPage() {
 
         setSuccess(
           "Persona creada correctamente. "
-          + "La biometría está pendiente "
-          + "de enrolamiento."
+          + "La biometría está pendiente de enrolamiento."
         );
 
 
-        await loadPeople();
+        await refreshPeople();
 
 
       } catch (err) {
@@ -609,10 +621,6 @@ function PersonasPage() {
     };
 
 
-  // ==========================================
-  // CARGAR DETALLE
-  // ==========================================
-
   const openPersonDetail =
     async (
       personId: number,
@@ -626,30 +634,10 @@ function PersonasPage() {
         );
 
 
-        setError(
-          null
-        );
-
-
-        const response =
-          await fetch(
-            `http://127.0.0.1:8000/api/personas/${personId}/detalle`
+        const data =
+          await fetchPersonDetail(
+            personId
           );
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            "No fue posible consultar "
-            + "el detalle de la persona."
-          );
-
-        }
-
-
-        const data:
-          PersonDetailResponse =
-            await response.json();
 
 
         setPersonDetail(
@@ -691,6 +679,11 @@ function PersonasPage() {
         );
 
 
+        setError(
+          null
+        );
+
+
       } catch (err) {
 
         if (
@@ -714,39 +707,6 @@ function PersonasPage() {
 
     };
 
-
-  // ==========================================
-  // CERRAR DETALLE
-  // ==========================================
-
-  const closeDetail = () => {
-
-    if (
-      savingEdit
-      ||
-      changingStatus
-    ) {
-
-      return;
-
-    }
-
-
-    setPersonDetail(
-      null
-    );
-
-
-    setEditMode(
-      false
-    );
-
-  };
-
-
-  // ==========================================
-  // CAMBIAR TIPO - EDICION
-  // ==========================================
 
   const handleEditTypeChange =
     (
@@ -775,10 +735,6 @@ function PersonasPage() {
     };
 
 
-  // ==========================================
-  // GUARDAR EDICION
-  // ==========================================
-
   const savePersonEdit =
     async (
       event: FormEvent
@@ -792,25 +748,6 @@ function PersonasPage() {
       }
 
 
-      if (
-        (
-          editForm.tipo === "RESIDENTE"
-          ||
-          editForm.tipo === "TRABAJADOR"
-        )
-        &&
-        !editForm.vivienda_id
-      ) {
-
-        setError(
-          "Debe seleccionar una vivienda."
-        );
-
-        return;
-
-      }
-
-
       try {
 
         setSavingEdit(
@@ -818,49 +755,8 @@ function PersonasPage() {
         );
 
 
-        setError(
-          null
-        );
-
-
-        const payload = {
-
-          nombre_completo:
-            editForm
-              .nombre_completo
-              .trim(),
-
-          tipo:
-            editForm.tipo,
-
-          email:
-            editForm.email.trim()
-              || null,
-
-          telefono:
-            editForm.telefono.trim()
-              || null,
-
-          vivienda_id:
-            editForm.tipo
-            === "SEGURIDAD"
-              ? null
-              : Number(
-                  editForm.vivienda_id
-                ),
-
-          es_responsable_notificacion:
-            editForm.tipo
-            === "RESIDENTE"
-              ? editForm
-                  .es_responsable_notificacion
-              : false,
-
-        };
-
-
         const response =
-          await fetch(
+          await apiFetch(
             `http://127.0.0.1:8000/api/personas/${personDetail.persona.id}`,
             {
               method: "PUT",
@@ -871,9 +767,38 @@ function PersonasPage() {
               },
 
               body:
-                JSON.stringify(
-                  payload
-                ),
+                JSON.stringify({
+                  nombre_completo:
+                    editForm
+                      .nombre_completo
+                      .trim(),
+
+                  tipo:
+                    editForm.tipo,
+
+                  email:
+                    editForm.email.trim()
+                    || null,
+
+                  telefono:
+                    editForm.telefono.trim()
+                    || null,
+
+                  vivienda_id:
+                    editForm.tipo
+                    === "SEGURIDAD"
+                      ? null
+                      : Number(
+                          editForm.vivienda_id
+                        ),
+
+                  es_responsable_notificacion:
+                    editForm.tipo
+                    === "RESIDENTE"
+                      ? editForm
+                          .es_responsable_notificacion
+                      : false,
+                }),
             }
           );
 
@@ -885,8 +810,7 @@ function PersonasPage() {
         if (!response.ok) {
 
           throw new Error(
-            typeof result.detail
-            === "string"
+            typeof result.detail === "string"
               ? result.detail
               : "No fue posible actualizar la persona."
           );
@@ -909,7 +833,7 @@ function PersonasPage() {
         );
 
 
-        await loadPeople();
+        await refreshPeople();
 
 
       } catch (err) {
@@ -936,10 +860,6 @@ function PersonasPage() {
     };
 
 
-  // ==========================================
-  // ACTIVAR / INACTIVAR
-  // ==========================================
-
   const togglePersonStatus =
     async () => {
 
@@ -952,21 +872,18 @@ function PersonasPage() {
         !personDetail.persona.activo;
 
 
-      const action =
-        newStatus
-          ? "activar"
-          : "inactivar";
+      if (
+        !window.confirm(
+          `¿Está seguro de ${
+            newStatus
+              ? "activar"
+              : "inactivar"
+          } a ${personDetail.persona.nombre_completo}?`
+        )
+      ) {
 
-
-      const confirmed =
-        window.confirm(
-          `¿Está seguro de ${action} a `
-          + `${personDetail.persona.nombre_completo}?`
-        );
-
-
-      if (!confirmed) {
         return;
+
       }
 
 
@@ -977,13 +894,8 @@ function PersonasPage() {
         );
 
 
-        setError(
-          null
-        );
-
-
         const response =
-          await fetch(
+          await apiFetch(
             `http://127.0.0.1:8000/api/personas/${personDetail.persona.id}/estado`,
             {
               method: "PATCH",
@@ -1009,8 +921,7 @@ function PersonasPage() {
         if (!response.ok) {
 
           throw new Error(
-            typeof result.detail
-            === "string"
+            typeof result.detail === "string"
               ? result.detail
               : "No fue posible cambiar el estado."
           );
@@ -1018,26 +929,14 @@ function PersonasPage() {
         }
 
 
+        const updated =
+          await fetchPersonDetail(
+            personDetail.persona.id
+          );
+
+
         setPersonDetail(
-          (current) => {
-
-            if (!current) {
-              return current;
-            }
-
-
-            return {
-              ...current,
-
-              persona: {
-                ...current.persona,
-
-                activo:
-                  newStatus,
-              },
-            };
-
-          }
+          updated
         );
 
 
@@ -1046,7 +945,7 @@ function PersonasPage() {
         );
 
 
-        await loadPeople();
+        await refreshPeople();
 
 
       } catch (err) {
@@ -1073,10 +972,6 @@ function PersonasPage() {
     };
 
 
-  // ==========================================
-  // ENROLAMIENTO COMPLETADO
-  // ==========================================
-
   const handleEnrollmentCompleted =
     async (
       biometricCode: string
@@ -1087,34 +982,19 @@ function PersonasPage() {
       );
 
 
-      setError(
-        null
-      );
-
-
       setSuccess(
-        "Enrolamiento biométrico "
-        + "completado correctamente. "
-        + "Código asignado: "
-        + biometricCode
+        "Enrolamiento biométrico completado. "
+        + `Código asignado: ${biometricCode}`
       );
 
 
-      await loadPeople();
+      await refreshPeople();
 
     };
 
 
-  // ==========================================
-  // RENDER
-  // ==========================================
-
   return (
     <>
-
-      {/* =====================================
-          HEADER
-      ====================================== */}
 
       <header className="topbar">
 
@@ -1135,9 +1015,10 @@ function PersonasPage() {
         <div className="header-actions">
 
           <button
+            type="button"
             className="refresh-button"
             onClick={
-              loadData
+              refreshAll
             }
           >
             Actualizar
@@ -1145,9 +1026,28 @@ function PersonasPage() {
 
 
           <button
+            type="button"
             className="primary-button"
             onClick={
-              openCreateModal
+              () => {
+
+                setForm(
+                  initialForm
+                );
+
+                setError(
+                  null
+                );
+
+                setSuccess(
+                  null
+                );
+
+                setShowCreateModal(
+                  true
+                );
+
+              }
             }
           >
             + Nueva persona
@@ -1158,46 +1058,26 @@ function PersonasPage() {
       </header>
 
 
-      {/* =====================================
-          MENSAJES
-      ====================================== */}
-
       {success && (
-
         <div className="success-message">
-
           {success}
-
         </div>
-
       )}
 
 
       {error && (
-
         <div className="error-message">
-
           {error}
-
         </div>
-
       )}
 
 
       {loading && (
-
         <div className="message">
-
           Cargando personas...
-
         </div>
-
       )}
 
-
-      {/* =====================================
-          TABLA
-      ====================================== */}
 
       {!loading && (
 
@@ -1227,35 +1107,13 @@ function PersonasPage() {
               <thead>
 
                 <tr>
-
-                  <th>
-                    Código
-                  </th>
-
-                  <th>
-                    Persona
-                  </th>
-
-                  <th>
-                    Tipo
-                  </th>
-
-                  <th>
-                    Vivienda
-                  </th>
-
-                  <th>
-                    Biometría
-                  </th>
-
-                  <th>
-                    Estado
-                  </th>
-
-                  <th>
-                    Acciones
-                  </th>
-
+                  <th>Código</th>
+                  <th>Persona</th>
+                  <th>Tipo</th>
+                  <th>Vivienda</th>
+                  <th>Biometría</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
 
               </thead>
@@ -1274,12 +1132,11 @@ function PersonasPage() {
                       >
 
                         <td>
-
                           {
-                            person.codigo_biometrico
+                            person
+                              .codigo_biometrico
                             ?? "-"
                           }
-
                         </td>
 
 
@@ -1302,14 +1159,11 @@ function PersonasPage() {
                             <div>
 
                               <strong>
-
                                 {
                                   person
                                     .nombre_completo
                                 }
-
                               </strong>
-
 
                               <div className="secondary-text">
 
@@ -1328,9 +1182,7 @@ function PersonasPage() {
 
 
                         <td>
-
                           {person.tipo}
-
                         </td>
 
 
@@ -1436,16 +1288,14 @@ function PersonasPage() {
                                   className="enroll-button"
                                   onClick={
                                     () =>
-                                      setEnrollmentPerson(
-                                        {
-                                          id:
-                                            person.id,
+                                      setEnrollmentPerson({
+                                        id:
+                                          person.id,
 
-                                          nombre_completo:
-                                            person
-                                              .nombre_completo,
-                                        }
-                                      )
+                                        nombre_completo:
+                                          person
+                                            .nombre_completo,
+                                      })
                                   }
                                 >
                                   Enrolar
@@ -1475,10 +1325,6 @@ function PersonasPage() {
       )}
 
 
-      {/* =====================================
-          CREAR PERSONA
-      ====================================== */}
-
       {showCreateModal && (
 
         <div className="modal-backdrop">
@@ -1502,6 +1348,7 @@ function PersonasPage() {
 
 
               <button
+                type="button"
                 className="modal-close"
                 onClick={
                   () =>
@@ -1532,8 +1379,6 @@ function PersonasPage() {
 
                   <input
                     required
-                    minLength={3}
-                    maxLength={150}
                     value={
                       form.nombre_completo
                     }
@@ -1541,7 +1386,6 @@ function PersonasPage() {
                       (event) =>
                         setForm({
                           ...form,
-
                           nombre_completo:
                             event.target.value,
                         })
@@ -1589,8 +1433,7 @@ function PersonasPage() {
 
 
                   {
-                    form.tipo
-                    !== "SEGURIDAD"
+                    form.tipo !== "SEGURIDAD"
                     && (
 
                       <div className="form-group">
@@ -1701,8 +1544,7 @@ function PersonasPage() {
 
 
                 {
-                  form.tipo
-                  === "RESIDENTE"
+                  form.tipo === "RESIDENTE"
                   && (
 
                     <label className="checkbox-row">
@@ -1729,12 +1571,6 @@ function PersonasPage() {
                         <strong>
                           Responsable de notificaciones
                         </strong>
-
-                        <span>
-                          Recibirá avisos
-                          relacionados con
-                          esta vivienda.
-                        </span>
 
                       </div>
 
@@ -1763,6 +1599,7 @@ function PersonasPage() {
 
 
                 <button
+                  type="submit"
                   className="primary-button"
                   disabled={
                     saving
@@ -1788,10 +1625,6 @@ function PersonasPage() {
       )}
 
 
-      {/* =====================================
-          DETALLE / EDICION
-      ====================================== */}
-
       {
         personDetail
         && (
@@ -1805,11 +1638,13 @@ function PersonasPage() {
                 <div>
 
                   <h3>
+
                     {
                       editMode
                         ? "Editar persona"
                         : "Detalle de persona"
                     }
+
                   </h3>
 
                   <p>
@@ -1824,9 +1659,13 @@ function PersonasPage() {
 
 
                 <button
+                  type="button"
                   className="modal-close"
                   onClick={
-                    closeDetail
+                    () =>
+                      setPersonDetail(
+                        null
+                      )
                   }
                 >
                   ×
@@ -1837,556 +1676,488 @@ function PersonasPage() {
 
               {
                 editMode
-                ? (
+                  ? (
 
-                  <form
-                    onSubmit={
-                      savePersonEdit
-                    }
-                  >
+                    <form
+                      onSubmit={
+                        savePersonEdit
+                      }
+                    >
 
-                    <div className="modal-body">
-
-                      <div className="form-group">
-
-                        <label>
-                          Nombre completo *
-                        </label>
-
-                        <input
-                          required
-                          value={
-                            editForm
-                              .nombre_completo
-                          }
-                          onChange={
-                            (event) =>
-                              setEditForm({
-                                ...editForm,
-
-                                nombre_completo:
-                                  event.target.value,
-                              })
-                          }
-                        />
-
-                      </div>
-
-
-                      <div className="form-row">
+                      <div className="modal-body">
 
                         <div className="form-group">
 
                           <label>
-                            Tipo
+                            Nombre completo
                           </label>
 
-                          <select
+                          <input
+                            required
                             value={
-                              editForm.tipo
+                              editForm
+                                .nombre_completo
                             }
                             onChange={
                               (event) =>
-                                handleEditTypeChange(
-                                  event.target.value
-                                )
+                                setEditForm({
+                                  ...editForm,
+
+                                  nombre_completo:
+                                    event.target.value,
+                                })
                             }
-                          >
+                          />
 
-                            <option value="RESIDENTE">
-                              Residente
-                            </option>
+                        </div>
 
-                            <option value="TRABAJADOR">
-                              Trabajador
-                            </option>
 
-                            <option value="SEGURIDAD">
-                              Seguridad
-                            </option>
+                        <div className="form-row">
 
-                          </select>
+                          <div className="form-group">
+
+                            <label>
+                              Tipo
+                            </label>
+
+                            <select
+                              value={
+                                editForm.tipo
+                              }
+                              onChange={
+                                (event) =>
+                                  handleEditTypeChange(
+                                    event.target.value
+                                  )
+                              }
+                            >
+
+                              <option value="RESIDENTE">
+                                Residente
+                              </option>
+
+                              <option value="TRABAJADOR">
+                                Trabajador
+                              </option>
+
+                              <option value="SEGURIDAD">
+                                Seguridad
+                              </option>
+
+                            </select>
+
+                          </div>
+
+
+                          {
+                            editForm.tipo
+                            !== "SEGURIDAD"
+                            && (
+
+                              <div className="form-group">
+
+                                <label>
+                                  Vivienda
+                                </label>
+
+                                <select
+                                  value={
+                                    editForm
+                                      .vivienda_id
+                                  }
+                                  onChange={
+                                    (event) =>
+                                      setEditForm({
+                                        ...editForm,
+
+                                        vivienda_id:
+                                          event.target.value,
+                                      })
+                                  }
+                                >
+
+                                  <option value="">
+                                    Seleccione...
+                                  </option>
+
+                                  {
+                                    houses.map(
+                                      (house) => (
+
+                                        <option
+                                          key={
+                                            house.id
+                                          }
+                                          value={
+                                            house.id
+                                          }
+                                        >
+
+                                          {house.codigo}
+
+                                        </option>
+
+                                      )
+                                    )
+                                  }
+
+                                </select>
+
+                              </div>
+
+                            )
+                          }
+
+                        </div>
+
+
+                        <div className="form-group">
+
+                          <label>
+                            Correo
+                          </label>
+
+                          <input
+                            type="email"
+                            value={
+                              editForm.email
+                            }
+                            onChange={
+                              (event) =>
+                                setEditForm({
+                                  ...editForm,
+
+                                  email:
+                                    event.target.value,
+                                })
+                            }
+                          />
+
+                        </div>
+
+
+                        <div className="form-group">
+
+                          <label>
+                            Teléfono
+                          </label>
+
+                          <input
+                            value={
+                              editForm.telefono
+                            }
+                            onChange={
+                              (event) =>
+                                setEditForm({
+                                  ...editForm,
+
+                                  telefono:
+                                    event.target.value,
+                                })
+                            }
+                          />
 
                         </div>
 
 
                         {
                           editForm.tipo
-                          !== "SEGURIDAD"
+                          === "RESIDENTE"
                           && (
 
-                            <div className="form-group">
+                            <label className="checkbox-row">
 
-                              <label>
-                                Vivienda
-                              </label>
-
-                              <select
-                                value={
+                              <input
+                                type="checkbox"
+                                checked={
                                   editForm
-                                    .vivienda_id
+                                    .es_responsable_notificacion
                                 }
                                 onChange={
                                   (event) =>
                                     setEditForm({
                                       ...editForm,
 
-                                      vivienda_id:
-                                        event.target.value,
+                                      es_responsable_notificacion:
+                                        event.target.checked,
                                     })
                                 }
-                              >
-
-                                <option value="">
-                                  Seleccione...
-                                </option>
-
-
-                                {
-                                  houses.map(
-                                    (house) => (
-
-                                      <option
-                                        key={
-                                          house.id
-                                        }
-                                        value={
-                                          house.id
-                                        }
-                                      >
-
-                                        {
-                                          house.codigo
-                                        }
-
-                                      </option>
-
-                                    )
-                                  )
-                                }
-
-                              </select>
-
-                            </div>
-
-                          )
-                        }
-
-                      </div>
-
-
-                      <div className="form-group">
-
-                        <label>
-                          Correo
-                        </label>
-
-                        <input
-                          type="email"
-                          value={
-                            editForm.email
-                          }
-                          onChange={
-                            (event) =>
-                              setEditForm({
-                                ...editForm,
-
-                                email:
-                                  event.target.value,
-                              })
-                          }
-                        />
-
-                      </div>
-
-
-                      <div className="form-group">
-
-                        <label>
-                          Teléfono
-                        </label>
-
-                        <input
-                          value={
-                            editForm.telefono
-                          }
-                          onChange={
-                            (event) =>
-                              setEditForm({
-                                ...editForm,
-
-                                telefono:
-                                  event.target.value,
-                              })
-                          }
-                        />
-
-                      </div>
-
-
-                      {
-                        editForm.tipo
-                        === "RESIDENTE"
-                        && (
-
-                          <label className="checkbox-row">
-
-                            <input
-                              type="checkbox"
-                              checked={
-                                editForm
-                                  .es_responsable_notificacion
-                              }
-                              onChange={
-                                (event) =>
-                                  setEditForm({
-                                    ...editForm,
-
-                                    es_responsable_notificacion:
-                                      event.target.checked,
-                                  })
-                              }
-                            />
-
-                            <div>
+                              />
 
                               <strong>
-                                Responsable
-                                de notificaciones
+                                Responsable de notificaciones
                               </strong>
 
-                            </div>
-
-                          </label>
-
-                        )
-                      }
-
-                    </div>
-
-
-                    <div className="modal-footer">
-
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={
-                          () =>
-                            setEditMode(
-                              false
-                            )
-                        }
-                      >
-                        Cancelar
-                      </button>
-
-
-                      <button
-                        className="primary-button"
-                        disabled={
-                          savingEdit
-                        }
-                      >
-
-                        {
-                          savingEdit
-                            ? "Guardando..."
-                            : "Guardar cambios"
-                        }
-
-                      </button>
-
-                    </div>
-
-                  </form>
-
-                )
-                : (
-
-                  <>
-
-                    <div className="modal-body">
-
-                      <div className="detail-grid">
-
-                        <div className="detail-item">
-
-                          <span>
-                            Código biométrico
-                          </span>
-
-                          <strong>
-                            {
-                              personDetail
-                                .persona
-                                .codigo_biometrico
-                              ?? "Pendiente"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div className="detail-item">
-
-                          <span>
-                            Tipo
-                          </span>
-
-                          <strong>
-                            {
-                              personDetail
-                                .persona.tipo
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div className="detail-item">
-
-                          <span>
-                            Correo
-                          </span>
-
-                          <strong>
-                            {
-                              personDetail
-                                .persona.email
-                              ?? "Sin correo"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div className="detail-item">
-
-                          <span>
-                            Teléfono
-                          </span>
-
-                          <strong>
-                            {
-                              personDetail
-                                .persona.telefono
-                              ?? "Sin teléfono"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div className="detail-item">
-
-                          <span>
-                            Vivienda
-                          </span>
-
-                          <strong>
-                            {
-                              personDetail
-                                .vivienda?.codigo
-                              ?? "Sin vivienda"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div className="detail-item">
-
-                          <span>
-                            Estado
-                          </span>
-
-                          <strong>
-                            {
-                              personDetail
-                                .persona.activo
-                              ? "ACTIVO"
-                              : "INACTIVO"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div className="detail-item">
-
-                          <span>
-                            Registrado
-                          </span>
-
-                          <strong>
-                            {
-                              formatDate(
-                                personDetail
-                                  .persona
-                                  .creado_en
-                              )
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div className="detail-item">
-
-                          <span>
-                            Responsable
-                            de notificaciones
-                          </span>
-
-                          <strong>
-                            {
-                              personDetail
-                                .vivienda
-                                ?.es_responsable_notificacion
-                              ? "Sí"
-                              : "No"
-                            }
-                          </strong>
-
-                        </div>
-
-                      </div>
-
-
-                      <div className="detail-section">
-
-                        <h4>
-                          Biometría
-                        </h4>
-
-
-                        {
-                          personDetail.biometria
-                          ? (
-
-                            <div className="detail-grid">
-
-                              <div className="detail-item">
-
-                                <span>
-                                  Modelo
-                                </span>
-
-                                <strong>
-                                  {
-                                    personDetail
-                                      .biometria.modelo
-                                  }
-                                </strong>
-
-                              </div>
-
-
-                              <div className="detail-item">
-
-                                <span>
-                                  Muestras
-                                </span>
-
-                                <strong>
-                                  {
-                                    personDetail
-                                      .biometria
-                                      .cantidad_muestras
-                                  }
-                                </strong>
-
-                              </div>
-
-                            </div>
-
-                          )
-                          : (
-
-                            <div className="form-info">
-
-                              <strong>
-                                Biometría pendiente
-                              </strong>
-
-                              <p>
-                                Esta persona todavía
-                                no ha sido enrolada.
-                              </p>
-
-                            </div>
+                            </label>
 
                           )
                         }
 
                       </div>
 
-                    </div>
 
-
-                    <div className="modal-footer person-detail-footer">
-
-                      <button
-                        type="button"
-                        className={
-                          personDetail
-                            .persona.activo
-                            ? "danger-button"
-                            : "activate-button"
-                        }
-                        onClick={
-                          togglePersonStatus
-                        }
-                        disabled={
-                          changingStatus
-                        }
-                      >
-
-                        {
-                          changingStatus
-                            ? "Procesando..."
-                            : personDetail
-                                .persona.activo
-                              ? "Inactivar"
-                              : "Activar"
-                        }
-
-                      </button>
-
-
-                      <div className="detail-footer-right">
+                      <div className="modal-footer">
 
                         <button
                           type="button"
                           className="secondary-button"
                           onClick={
-                            closeDetail
+                            () =>
+                              setEditMode(
+                                false
+                              )
                           }
                         >
-                          Cerrar
+                          Cancelar
                         </button>
 
 
                         <button
-                          type="button"
+                          type="submit"
                           className="primary-button"
-                          onClick={
-                            () =>
-                              setEditMode(
-                                true
-                              )
+                          disabled={
+                            savingEdit
                           }
                         >
-                          Editar persona
+
+                          {
+                            savingEdit
+                              ? "Guardando..."
+                              : "Guardar cambios"
+                          }
+
                         </button>
 
                       </div>
 
-                    </div>
+                    </form>
 
-                  </>
+                  )
+                  : (
 
-                )
+                    <>
+
+                      <div className="modal-body">
+
+                        <div className="detail-grid">
+
+                          <div className="detail-item">
+
+                            <span>
+                              Código biométrico
+                            </span>
+
+                            <strong>
+
+                              {
+                                personDetail
+                                  .persona
+                                  .codigo_biometrico
+                                ?? "Pendiente"
+                              }
+
+                            </strong>
+
+                          </div>
+
+
+                          <div className="detail-item">
+
+                            <span>
+                              Tipo
+                            </span>
+
+                            <strong>
+                              {
+                                personDetail
+                                  .persona.tipo
+                              }
+                            </strong>
+
+                          </div>
+
+
+                          <div className="detail-item">
+
+                            <span>
+                              Correo
+                            </span>
+
+                            <strong>
+                              {
+                                personDetail
+                                  .persona.email
+                                ?? "Sin correo"
+                              }
+                            </strong>
+
+                          </div>
+
+
+                          <div className="detail-item">
+
+                            <span>
+                              Teléfono
+                            </span>
+
+                            <strong>
+                              {
+                                personDetail
+                                  .persona.telefono
+                                ?? "Sin teléfono"
+                              }
+                            </strong>
+
+                          </div>
+
+
+                          <div className="detail-item">
+
+                            <span>
+                              Vivienda
+                            </span>
+
+                            <strong>
+                              {
+                                personDetail
+                                  .vivienda?.codigo
+                                ?? "Sin vivienda"
+                              }
+                            </strong>
+
+                          </div>
+
+
+                          <div className="detail-item">
+
+                            <span>
+                              Estado
+                            </span>
+
+                            <strong>
+
+                              {
+                                personDetail
+                                  .persona.activo
+                                  ? "ACTIVO"
+                                  : "INACTIVO"
+                              }
+
+                            </strong>
+
+                          </div>
+
+
+                          <div className="detail-item">
+
+                            <span>
+                              Registrado
+                            </span>
+
+                            <strong>
+
+                              {
+                                formatDate(
+                                  personDetail
+                                    .persona
+                                    .creado_en
+                                )
+                              }
+
+                            </strong>
+
+                          </div>
+
+
+                          <div className="detail-item">
+
+                            <span>
+                              Biometría
+                            </span>
+
+                            <strong>
+
+                              {
+                                personDetail.biometria
+                                  ? `${personDetail.biometria.modelo} / ${personDetail.biometria.cantidad_muestras} muestras`
+                                  : "Pendiente"
+                              }
+
+                            </strong>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="modal-footer person-detail-footer">
+
+                        <button
+                          type="button"
+                          className={
+                            personDetail
+                              .persona.activo
+                              ? "danger-button"
+                              : "activate-button"
+                          }
+                          onClick={
+                            togglePersonStatus
+                          }
+                          disabled={
+                            changingStatus
+                          }
+                        >
+
+                          {
+                            changingStatus
+                              ? "Procesando..."
+                              : personDetail
+                                  .persona.activo
+                                ? "Inactivar"
+                                : "Activar"
+                          }
+
+                        </button>
+
+
+                        <div className="detail-footer-right">
+
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={
+                              () =>
+                                setPersonDetail(
+                                  null
+                                )
+                            }
+                          >
+                            Cerrar
+                          </button>
+
+
+                          <button
+                            type="button"
+                            className="primary-button"
+                            onClick={
+                              () =>
+                                setEditMode(
+                                  true
+                                )
+                            }
+                          >
+                            Editar persona
+                          </button>
+
+                        </div>
+
+                      </div>
+
+                    </>
+
+                  )
               }
 
             </div>
@@ -2397,22 +2168,14 @@ function PersonasPage() {
       }
 
 
-      {/* CARGANDO DETALLE */}
-
       {detailLoading && (
 
         <div className="floating-loading">
-
           Cargando detalle...
-
         </div>
 
       )}
 
-
-      {/* =====================================
-          ENROLAMIENTO
-      ====================================== */}
 
       {
         enrollmentPerson

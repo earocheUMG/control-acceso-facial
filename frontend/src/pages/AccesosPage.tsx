@@ -3,6 +3,10 @@ import {
   useState,
 } from "react";
 
+import {
+  apiFetch
+} from "../services/api";
+
 
 interface Access {
   id: number;
@@ -44,6 +48,50 @@ type Filter =
   | "RECHAZADO";
 
 
+async function fetchAccesses(
+  filter: Filter,
+  limit: number
+): Promise<AccessResponse> {
+
+  let url =
+    `http://127.0.0.1:8000/api/accesos?limit=${limit}`;
+
+
+  if (
+    filter !== "TODOS"
+  ) {
+
+    url +=
+      `&resultado=${filter}`;
+
+  }
+
+
+  const response =
+    await apiFetch(
+      url
+    );
+
+
+  const result =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      typeof result.detail === "string"
+        ? result.detail
+        : "No fue posible consultar los accesos."
+    );
+
+  }
+
+
+  return result;
+}
+
+
 function formatDate(
   date: string
 ) {
@@ -63,72 +111,158 @@ function formatDate(
 
 function AccesosPage() {
 
-  const [accesses, setAccesses] =
-    useState<Access[]>([]);
+  const [
+    accesses,
+    setAccesses
+  ] = useState<Access[]>([]);
 
-  const [filter, setFilter] =
-    useState<Filter>(
-      "TODOS"
-    );
 
-  const [limit, setLimit] =
-    useState(50);
+  const [
+    filter,
+    setFilter
+  ] = useState<Filter>(
+    "TODOS"
+  );
 
-  const [loading, setLoading] =
-    useState(true);
 
-  const [error, setError] =
-    useState<string | null>(
-      null
-    );
+  const [
+    limit,
+    setLimit
+  ] = useState(50);
+
+
+  const [
+    loading,
+    setLoading
+  ] = useState(true);
+
+
+  const [
+    error,
+    setError
+  ] = useState<string | null>(
+    null
+  );
 
 
   // ==========================================
-  // CARGAR ACCESOS
+  // CARGA + REFRESCO AUTOMATICO
   // ==========================================
 
-  const loadAccesses =
+  useEffect(() => {
+
+    let active = true;
+
+
+    const request =
+      async () => {
+
+        try {
+
+          const data =
+            await fetchAccesses(
+              filter,
+              limit
+            );
+
+
+          if (!active) {
+            return;
+          }
+
+
+          setAccesses(
+            data.accesos
+          );
+
+
+          setError(
+            null
+          );
+
+
+        } catch (err) {
+
+          if (!active) {
+            return;
+          }
+
+
+          if (
+            err instanceof Error
+          ) {
+
+            setError(
+              err.message
+            );
+
+          }
+
+
+        } finally {
+
+          if (active) {
+
+            setLoading(
+              false
+            );
+
+          }
+
+        }
+
+      };
+
+
+    void request();
+
+
+    const interval =
+      window.setInterval(
+        () => {
+
+          void request();
+
+        },
+        10000
+      );
+
+
+    return () => {
+
+      active = false;
+
+      window.clearInterval(
+        interval
+      );
+
+    };
+
+  }, [
+    filter,
+    limit
+  ]);
+
+
+  const refreshAccesses =
     async () => {
 
       try {
 
-        setError(null);
-
-        let url =
-          `http://127.0.0.1:8000/api/accesos?limit=${limit}`;
-
-        if (
-          filter !== "TODOS"
-        ) {
-
-          url +=
-            `&resultado=${filter}`;
-
-        }
-
-
-        const response =
-          await fetch(
-            url
+        const data =
+          await fetchAccesses(
+            filter,
+            limit
           );
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            "No fue posible consultar los accesos."
-          );
-
-        }
-
-
-        const data:
-          AccessResponse =
-            await response.json();
 
 
         setAccesses(
           data.accesos
+        );
+
+
+        setError(
+          null
         );
 
 
@@ -144,55 +278,10 @@ function AccesosPage() {
 
         }
 
-
-      } finally {
-
-        setLoading(
-          false
-        );
-
       }
 
     };
 
-
-  // ==========================================
-  // RECARGAR AL CAMBIAR FILTRO
-  // ==========================================
-
-  useEffect(() => {
-
-    setLoading(
-      true
-    );
-
-    loadAccesses();
-
-
-    const interval =
-      window.setInterval(
-        loadAccesses,
-        10000
-      );
-
-
-    return () => {
-
-      window.clearInterval(
-        interval
-      );
-
-    };
-
-  }, [
-    filter,
-    limit
-  ]);
-
-
-  // ==========================================
-  // CONTADORES DE LO CARGADO
-  // ==========================================
 
   const authorizedCount =
     accesses.filter(
@@ -213,10 +302,6 @@ function AccesosPage() {
   return (
     <>
 
-      {/* =====================================
-          HEADER
-      ====================================== */}
-
       <header className="topbar">
 
         <div>
@@ -234,9 +319,10 @@ function AccesosPage() {
 
 
         <button
+          type="button"
           className="refresh-button"
           onClick={
-            loadAccesses
+            refreshAccesses
           }
         >
           Actualizar
@@ -244,10 +330,6 @@ function AccesosPage() {
 
       </header>
 
-
-      {/* =====================================
-          RESUMEN
-      ====================================== */}
 
       <section className="access-summary">
 
@@ -302,15 +384,12 @@ function AccesosPage() {
       </section>
 
 
-      {/* =====================================
-          FILTROS
-      ====================================== */}
-
       <section className="access-toolbar">
 
         <div className="access-filters">
 
           <button
+            type="button"
             className={
               filter === "TODOS"
                 ? "filter-button active"
@@ -328,6 +407,7 @@ function AccesosPage() {
 
 
           <button
+            type="button"
             className={
               filter === "AUTORIZADO"
                 ? "filter-button active success"
@@ -345,6 +425,7 @@ function AccesosPage() {
 
 
           <button
+            type="button"
             className={
               filter === "RECHAZADO"
                 ? "filter-button active danger"
@@ -406,27 +487,23 @@ function AccesosPage() {
       </section>
 
 
-      {/* =====================================
-          MENSAJES
-      ====================================== */}
-
       {error && (
+
         <div className="error-message">
           {error}
         </div>
+
       )}
 
 
       {loading && (
+
         <div className="message">
           Cargando accesos...
         </div>
+
       )}
 
-
-      {/* =====================================
-          TABLA
-      ====================================== */}
 
       {!loading && !error && (
 
@@ -467,41 +544,15 @@ function AccesosPage() {
 
                 <tr>
 
-                  <th>
-                    ID
-                  </th>
-
-                  <th>
-                    Persona
-                  </th>
-
-                  <th>
-                    Vivienda
-                  </th>
-
-                  <th>
-                    Resultado
-                  </th>
-
-                  <th>
-                    Similitud
-                  </th>
-
-                  <th>
-                    Puerta
-                  </th>
-
-                  <th>
-                    Notificación
-                  </th>
-
-                  <th>
-                    Punto
-                  </th>
-
-                  <th>
-                    Fecha
-                  </th>
+                  <th>ID</th>
+                  <th>Persona</th>
+                  <th>Vivienda</th>
+                  <th>Resultado</th>
+                  <th>Similitud</th>
+                  <th>Puerta</th>
+                  <th>Notificación</th>
+                  <th>Punto</th>
+                  <th>Fecha</th>
 
                 </tr>
 
@@ -520,23 +571,14 @@ function AccesosPage() {
                         }
                       >
 
-                        {/* ID */}
-
                         <td>
 
                           <span className="access-id">
-
-                            #
-                            {
-                              access.id
-                            }
-
+                            #{access.id}
                           </span>
 
                         </td>
 
-
-                        {/* PERSONA */}
 
                         <td>
 
@@ -580,10 +622,8 @@ function AccesosPage() {
                                 {
                                   access
                                     .codigo_biometrico
-                                  ?
-                                    `Código ${access.codigo_biometrico}`
-                                  :
-                                    "Sin identificar"
+                                  ? `Código ${access.codigo_biometrico}`
+                                  : "Sin identificar"
                                 }
 
                               </div>
@@ -595,20 +635,13 @@ function AccesosPage() {
                         </td>
 
 
-                        {/* VIVIENDA */}
-
                         <td>
-
                           {
                             access.viviendas
-                            ||
-                            "-"
+                            || "-"
                           }
-
                         </td>
 
-
-                        {/* RESULTADO */}
 
                         <td>
 
@@ -616,10 +649,8 @@ function AccesosPage() {
                             className={
                               access.resultado
                               === "AUTORIZADO"
-                                ?
-                                  "badge badge-success"
-                                :
-                                  "badge badge-danger"
+                                ? "badge badge-success"
+                                : "badge badge-danger"
                             }
                           >
 
@@ -632,23 +663,17 @@ function AccesosPage() {
                         </td>
 
 
-                        {/* SIMILITUD */}
-
                         <td>
 
-                          <span
-                            className="similarity-value"
-                          >
+                          <span className="similarity-value">
 
                             {
                               access.similitud
                               !== null
-                                ?
-                                  Number(
+                                ? Number(
                                     access.similitud
                                   ).toFixed(3)
-                                :
-                                  "-"
+                                : "-"
                             }
 
                           </span>
@@ -656,36 +681,28 @@ function AccesosPage() {
                         </td>
 
 
-                        {/* PUERTA */}
-
                         <td>
 
                           {
                             access.puerta_abierta
-                            ? (
+                              ? (
 
-                              <span className="door-open">
+                                <span className="door-open">
+                                  ABIERTA
+                                </span>
 
-                                ABIERTA
+                              )
+                              : (
 
-                              </span>
+                                <span className="door-closed">
+                                  CERRADA
+                                </span>
 
-                            )
-                            : (
-
-                              <span className="door-closed">
-
-                                CERRADA
-
-                              </span>
-
-                            )
+                              )
                           }
 
                         </td>
 
-
-                        {/* NOTIFICACIONES */}
 
                         <td>
 
@@ -693,64 +710,49 @@ function AccesosPage() {
                             access
                               .total_notificaciones
                             === 0
-                            ? (
+                              ? (
 
-                              <span className="secondary-text">
+                                <span className="secondary-text">
+                                  Sin notificación
+                                </span>
 
-                                Sin notificación
+                              )
+                              : access
+                                  .notificaciones_error
+                                > 0
+                                ? (
 
-                              </span>
+                                  <span className="badge badge-danger">
+                                    ERROR
+                                  </span>
 
-                            )
-                            : access
-                                .notificaciones_error
-                              > 0
-                            ? (
+                                )
+                                : (
 
-                              <span className="badge badge-danger">
+                                  <span className="badge badge-success">
+                                    ENVIADA
+                                  </span>
 
-                                ERROR
-
-                              </span>
-
-                            )
-                            : (
-
-                              <span className="badge badge-success">
-
-                                ENVIADA
-
-                              </span>
-
-                            )
+                                )
                           }
 
                         </td>
 
 
-                        {/* PUNTO */}
-
                         <td>
-
                           {
                             access
                               .punto_acceso
                           }
-
                         </td>
 
 
-                        {/* FECHA */}
-
                         <td>
-
                           {
                             formatDate(
-                              access
-                                .fecha_hora
+                              access.fecha_hora
                             )
                           }
-
                         </td>
 
                       </tr>
@@ -767,15 +769,12 @@ function AccesosPage() {
 
 
           {
-            accesses.length
-            === 0
+            accesses.length === 0
             && (
 
               <div className="empty-state">
-
                 No existen registros
                 para el filtro seleccionado.
-
               </div>
 
             )
@@ -787,6 +786,7 @@ function AccesosPage() {
 
     </>
   );
+
 }
 
 
