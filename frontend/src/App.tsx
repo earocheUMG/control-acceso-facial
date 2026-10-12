@@ -49,7 +49,20 @@ function App() {
 
 
       {/* =====================================
-          LOGIN
+          TERMINAL PUBLICO DE CONTROL
+          No requiere login humano.
+      ====================================== */}
+
+      <Route
+        path="/control-acceso"
+        element={
+          <ControlAccesoPage />
+        }
+      />
+
+
+      {/* =====================================
+          LOGIN ADMINISTRATIVO
       ====================================== */}
 
       <Route
@@ -83,14 +96,6 @@ function App() {
           path="/"
           element={
             <DashboardPage />
-          }
-        />
-
-
-        <Route
-          path="/control-acceso"
-          element={
-            <ControlAccesoPage />
           }
         />
 

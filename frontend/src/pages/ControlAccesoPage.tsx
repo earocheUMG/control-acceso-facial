@@ -4,11 +4,6 @@ import {
   useState,
 } from "react";
 
-import {
-  apiFetch
-} from "../services/api";
-
-
 interface RecognitionPerson {
   id: number;
   codigo_biometrico: string;
@@ -549,7 +544,7 @@ function ControlAccesoPage() {
 
 
         const response =
-          await apiFetch(
+          await fetch(
             "http://127.0.0.1:8000/api/control-acceso/procesar-evento",
             {
               method: "POST",
@@ -965,7 +960,7 @@ function ControlAccesoPage() {
 
 
           const response =
-            await apiFetch(
+            await fetch(
               "http://127.0.0.1:8000/api/control-acceso/reconocer",
               {
                 method:
@@ -1664,9 +1659,9 @@ function ControlAccesoPage() {
 
           <div className="recognition-preview-note">
 
-            Control de acceso conectado
-            a PostgreSQL y al sistema
-            de notificaciones.
+            Terminal conectado a PostgreSQL,
+            notificaciones y control de puerta
+            mediante MQTT / ESP32.
 
           </div>
 

@@ -3,11 +3,8 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
+    Request,
     UploadFile
-)
-
-from backend.app.dependencies.auth import (
-    get_current_user
 )
 
 from backend.services.access_event_service import (
@@ -37,6 +34,52 @@ ALLOWED_CONTENT_TYPES = {
     "image/png",
     "image/webp"
 }
+
+
+LOCAL_TERMINAL_HOSTS = {
+    "127.0.0.1",
+    "::1"
+}
+
+
+# =============================================
+# VALIDAR TERMINAL LOCAL
+# =============================================
+
+def validate_local_terminal(
+    request: Request
+):
+
+    client = request.client
+
+
+    if client is None:
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "No fue posible identificar "
+                "el terminal de acceso."
+            )
+        )
+
+
+    if (
+        client.host
+        not in LOCAL_TERMINAL_HOSTS
+    ):
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "El servicio de control de acceso "
+                "solo está disponible para el "
+                "terminal local autorizado."
+            )
+        )
+
+
+    return client.host
 
 
 # =============================================
@@ -102,9 +145,9 @@ async def read_image(
 )
 async def recognize_access_frame(
     imagen: UploadFile = File(...),
-    _current_user=
+    _terminal=
         Depends(
-            get_current_user
+            validate_local_terminal
         )
 ):
 
@@ -152,9 +195,9 @@ async def recognize_access_frame(
 )
 async def process_confirmed_access(
     imagen: UploadFile = File(...),
-    _current_user=
+    _terminal=
         Depends(
-            get_current_user
+            validate_local_terminal
         )
 ):
 
