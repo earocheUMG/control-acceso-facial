@@ -30,6 +30,10 @@ from backend.services.recognition_service import (
     recognize_face_with_artifacts
 )
 
+from backend.services.door_service import (
+    open_door
+)
+
 
 # =============================================
 # CONFIGURACION
@@ -194,6 +198,7 @@ def notify_authorized_access(
 
 
     sent = 0
+
     errors = 0
 
 
@@ -338,7 +343,9 @@ def notify_security_alert(
 
         return {
             "enviadas": 0,
+
             "errores": 1,
+
             "detalle":
                 "SECURITY_EMAIL "
                 "no configurado."
@@ -421,7 +428,9 @@ def notify_security_alert(
 
         return {
             "enviadas": 0,
+
             "errores": 1,
+
             "detalle":
                 str(error)
         }
@@ -508,6 +517,47 @@ def process_access_event(
             )
 
 
+        # =====================================
+        # APERTURA FISICA / ESP32
+        # =====================================
+
+        door_result = (
+            open_door()
+        )
+
+
+        door_opened = bool(
+            door_result.get(
+                "enviado",
+                False
+            )
+        )
+
+
+        if door_opened:
+
+            print(
+                "ESP32: comando OPEN "
+                "enviado correctamente."
+            )
+
+        else:
+
+            print(
+                "ADVERTENCIA: "
+                "No fue posible enviar "
+                "OPEN al ESP32."
+            )
+
+            print(
+                door_result
+            )
+
+
+        # =====================================
+        # REGISTRAR ACCESO
+        # =====================================
+
         access = (
             register_access(
                 persona_id=
@@ -525,7 +575,7 @@ def process_access_event(
                     ],
 
                 puerta_abierta=
-                    True,
+                    door_opened,
 
                 motivo=
                     None,
@@ -535,6 +585,10 @@ def process_access_event(
             )
         )
 
+
+        # =====================================
+        # NOTIFICACION
+        # =====================================
 
         notification_result = (
             notify_authorized_access(
@@ -550,6 +604,10 @@ def process_access_event(
         )
 
 
+        # =====================================
+        # RESPUESTA
+        # =====================================
+
         return {
             "evento_registrado":
                 True,
@@ -561,10 +619,14 @@ def process_access_event(
                 "AUTORIZADO",
 
             "puerta_abierta":
-                True,
+                door_opened,
 
             "puerta_abierta_segundos":
-                DOOR_OPEN_TIME,
+                (
+                    DOOR_OPEN_TIME
+                    if door_opened
+                    else 0
+                ),
 
             "evidencia":
                 None,
@@ -573,7 +635,10 @@ def process_access_event(
                 recognition,
 
             "notificaciones":
-                notification_result
+                notification_result,
+
+            "hardware":
+                door_result
         }
 
 
@@ -587,6 +652,10 @@ def process_access_event(
         )
     )
 
+
+    # =========================================
+    # REGISTRAR ACCESO RECHAZADO
+    # =========================================
 
     access = (
         register_access(
@@ -616,6 +685,10 @@ def process_access_event(
     )
 
 
+    # =========================================
+    # ALERTA A SEGURIDAD
+    # =========================================
+
     notification_result = (
         notify_security_alert(
             access=
@@ -634,6 +707,10 @@ def process_access_event(
         )
     )
 
+
+    # =========================================
+    # RESPUESTA RECHAZADA
+    # =========================================
 
     return {
         "evento_registrado":
@@ -658,5 +735,22 @@ def process_access_event(
             recognition,
 
         "notificaciones":
-            notification_result
+            notification_result,
+
+        "hardware": {
+            "enviado":
+                False,
+
+            "estado":
+                "NO_APLICA",
+
+            "comando":
+                None,
+
+            "detalle":
+                (
+                    "No se envía comando al "
+                    "ESP32 para accesos rechazados."
+                )
+        }
     }
