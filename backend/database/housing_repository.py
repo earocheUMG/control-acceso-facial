@@ -79,6 +79,77 @@ def get_houses():
 
 
 # =============================================
+# BUSCAR VIVIENDA POR CODIGO
+# =============================================
+
+def get_house_by_code(
+    code
+):
+
+    with get_connection() as connection:
+
+        with connection.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    codigo,
+                    direccion,
+                    activa,
+                    creado_en
+                FROM viviendas
+                WHERE UPPER(codigo) = UPPER(%s)
+                LIMIT 1;
+                """,
+                (code,)
+            )
+
+            return cursor.fetchone()
+
+
+# =============================================
+# CREAR VIVIENDA
+# =============================================
+
+def create_house(
+    code,
+    address=None
+):
+
+    with get_connection() as connection:
+
+        with connection.cursor() as cursor:
+
+            cursor.execute(
+                """
+                INSERT INTO viviendas (
+                    codigo,
+                    direccion,
+                    activa
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    TRUE
+                )
+                RETURNING
+                    id,
+                    codigo,
+                    direccion,
+                    activa,
+                    creado_en;
+                """,
+                (
+                    code,
+                    address
+                )
+            )
+
+            return cursor.fetchone()
+
+
+# =============================================
 # DETALLE DE VIVIENDA
 # =============================================
 
