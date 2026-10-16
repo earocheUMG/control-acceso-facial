@@ -1,10 +1,15 @@
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException,
     status
 )
 
 from pydantic import BaseModel
+
+from backend.app.dependencies.auth import (
+    get_current_user
+)
 
 from backend.database.housing_repository import (
     create_house,
@@ -30,11 +35,64 @@ class CreateHouseRequest(BaseModel):
 
 
 # =============================================
+# VALIDAR ROL ADMIN
+# =============================================
+
+def require_admin(
+    current_user=
+        Depends(
+            get_current_user
+        )
+):
+
+    if isinstance(
+        current_user,
+        dict
+    ):
+
+        role = (
+            current_user.get(
+                "rol"
+            )
+        )
+
+    else:
+
+        role = (
+            getattr(
+                current_user,
+                "rol",
+                None
+            )
+        )
+
+
+    if role != "ADMIN":
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Se requieren permisos "
+                "de administrador."
+            )
+        )
+
+
+    return current_user
+
+
+# =============================================
 # LISTAR VIVIENDAS
 # =============================================
 
 @router.get("")
-def list_houses():
+def list_houses(
+    _current_user=
+        Depends(
+            require_admin
+        )
+):
 
     houses = get_houses()
 
@@ -53,7 +111,11 @@ def list_houses():
     status_code=status.HTTP_201_CREATED
 )
 def create_new_house(
-    payload: CreateHouseRequest
+    payload: CreateHouseRequest,
+    _current_user=
+        Depends(
+            require_admin
+        )
 ):
 
     code = (
@@ -145,7 +207,11 @@ def create_new_house(
 
 @router.get("/{house_id}")
 def get_house(
-    house_id: int
+    house_id: int,
+    _current_user=
+        Depends(
+            require_admin
+        )
 ):
 
     house = get_house_by_id(
