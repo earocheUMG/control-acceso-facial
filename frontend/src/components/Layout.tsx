@@ -8,6 +8,8 @@ import {
   useAuth
 } from "../context/AuthContext";
 
+import Icon from "./Icon";
+
 
 function Layout() {
 
@@ -55,7 +57,7 @@ function Layout() {
         <div className="sidebar-brand">
 
           <div className="brand-icon">
-            ◉
+            <Icon name="shield" size={23} />
           </div>
 
 
@@ -95,7 +97,7 @@ function Layout() {
           >
 
             <span className="nav-icon">
-              ▦
+              <Icon name="dashboard" />
             </span>
 
             <span>
@@ -121,7 +123,7 @@ function Layout() {
           >
 
             <span className="nav-icon">
-              ◎
+              <Icon name="scan" />
             </span>
 
             <span>
@@ -155,7 +157,7 @@ function Layout() {
                 >
 
                   <span className="nav-icon">
-                    ♙
+                    <Icon name="people" />
                   </span>
 
                   <span>
@@ -178,7 +180,7 @@ function Layout() {
                 >
 
                   <span className="nav-icon">
-                    ⌂
+                    <Icon name="home" />
                   </span>
 
                   <span>
@@ -201,7 +203,7 @@ function Layout() {
                 >
 
                   <span className="nav-icon">
-                    ⚙
+                    <Icon name="users" />
                   </span>
 
                   <span>
@@ -235,7 +237,7 @@ function Layout() {
           >
 
             <span className="nav-icon">
-              ⇄
+              <Icon name="access" />
             </span>
 
             <span>
@@ -258,7 +260,7 @@ function Layout() {
           >
 
             <span className="nav-icon">
-              ◇
+              <Icon name="bell" />
             </span>
 
             <span>

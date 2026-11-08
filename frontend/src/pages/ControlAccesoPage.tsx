@@ -1793,7 +1793,7 @@ function ControlAccesoPage() {
 
   return (
 
-    <>
+    <div className="control-access-page">
 
       <header className="topbar">
 
@@ -2330,7 +2330,7 @@ function ControlAccesoPage() {
 
       </section>
 
-    </>
+    </div>
 
   );
 

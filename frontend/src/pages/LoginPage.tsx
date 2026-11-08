@@ -15,6 +15,8 @@ import {
   useAuth
 } from "../context/AuthContext";
 
+import Icon from "../components/Icon";
+
 
 function LoginPage() {
 
@@ -145,12 +147,28 @@ function LoginPage() {
 
     <div className="login-page">
 
+      <section className="login-visual" aria-hidden="true">
+        <div className="login-visual-content">
+          <div className="login-security-mark">CF</div>
+          <span className="login-eyebrow">Control de Acceso</span>
+          <h2>Control de Acceso Facial<br />Mediante IA</h2>
+          <p>
+            Administración centralizada de identidades,
+            viviendas y eventos de acceso.
+          </p>
+          <div className="login-assurance">
+            <span>●</span>
+            Plataforma de seguridad operativa
+          </div>
+        </div>
+      </section>
+
       <div className="login-card">
 
         <div className="login-brand">
 
           <div className="login-logo">
-            ◉
+            <Icon name="shield" size={24} />
           </div>
 
 
