@@ -4,6 +4,11 @@ import {
   useState,
 } from "react";
 
+import {
+  apiFetch
+} from "../services/api";
+
+
 interface RecognitionPerson {
   id: number;
   codigo_biometrico: string;
@@ -22,13 +27,36 @@ interface RecognitionResponse {
 
   autorizado: boolean;
 
-  similitud: number | null;
+  similitud:
+    number | null;
 
   threshold: number;
 
   persona:
     RecognitionPerson
     | null;
+}
+
+
+interface LivenessResponse {
+  estado:
+    | "OK"
+    | "SIN_ROSTRO"
+    | "MULTIPLES_ROSTROS";
+
+  frontal: boolean;
+
+  giro_detectado: boolean;
+
+  direccion:
+    string | null;
+
+  yaw_score:
+    number | null;
+
+  frontal_threshold: number;
+
+  turn_threshold: number;
 }
 
 
@@ -52,7 +80,8 @@ interface AccessEventResponse {
 
   puerta_abierta_segundos: number;
 
-  evidencia: string | null;
+  evidencia:
+    string | null;
 
   reconocimiento:
     RecognitionResponse;
@@ -86,15 +115,30 @@ interface AccessDecision {
 }
 
 
-const REQUIRED_CONFIRMATIONS = 5;
+type LivenessPhase =
+  | "IDLE"
+  | "PREPARING"
+  | "TURN"
+  | "PASSED";
 
-const REQUIRED_MISSING_FRAMES = 15;
+
+const REQUIRED_CONFIRMATIONS =
+  5;
+
+const REQUIRED_MISSING_FRAMES =
+  15;
+
+const REQUIRED_LIVENESS_FRAMES =
+  2;
+
+const LIVENESS_TIMEOUT_MS =
+  12000;
 
 
 function ControlAccesoPage() {
 
   // ==========================================
-  // REFERENCIAS DE CAMARA
+  // CAMARA
   // ==========================================
 
   const videoRef =
@@ -102,25 +146,22 @@ function ControlAccesoPage() {
       null
     );
 
-
   const canvasRef =
     useRef<HTMLCanvasElement | null>(
       null
     );
-
 
   const streamRef =
     useRef<MediaStream | null>(
       null
     );
 
-
   const processingRef =
     useRef(false);
 
 
   // ==========================================
-  // CONTROL DEL RECONOCIMIENTO
+  // RECONOCIMIENTO
   // ==========================================
 
   const pendingIdentityRef =
@@ -128,25 +169,50 @@ function ControlAccesoPage() {
       null
     );
 
-
   const consecutiveRef =
     useRef(0);
-
 
   const decisionLockedRef =
     useRef(false);
 
-
   const eventProcessingRef =
     useRef(false);
-
 
   const missingFramesRef =
     useRef(0);
 
-
   const doorTimerRef =
     useRef<number | null>(
+      null
+    );
+
+
+  // ==========================================
+  // LIVENESS
+  // ==========================================
+
+  const livenessPreparingRef =
+    useRef(false);
+
+  const livenessActiveRef =
+    useRef(false);
+
+  const livenessProcessingRef =
+    useRef(false);
+
+  const livenessPersonIdRef =
+    useRef<number | null>(
+      null
+    );
+
+  const livenessSuccessRef =
+    useRef(0);
+
+  const livenessStartedAtRef =
+    useRef(0);
+
+  const confirmedFrameRef =
+    useRef<Blob | null>(
       null
     );
 
@@ -158,65 +224,96 @@ function ControlAccesoPage() {
   const [
     cameraReady,
     setCameraReady
-  ] = useState(false);
-
+  ] =
+    useState(false);
 
   const [
     recognitionActive,
     setRecognitionActive
-  ] = useState(true);
-
+  ] =
+    useState(true);
 
   const [
     result,
     setResult
-  ] = useState<RecognitionResponse | null>(
-    null
-  );
-
+  ] =
+    useState<RecognitionResponse | null>(
+      null
+    );
 
   const [
     error,
     setError
-  ] = useState<string | null>(
-    null
-  );
-
+  ] =
+    useState<string | null>(
+      null
+    );
 
   const [
     confirmationCount,
     setConfirmationCount
-  ] = useState(0);
-
+  ] =
+    useState(0);
 
   const [
     missingFrames,
     setMissingFrames
-  ] = useState(0);
-
+  ] =
+    useState(0);
 
   const [
     accessDecision,
     setAccessDecision
-  ] = useState<AccessDecision | null>(
-    null
-  );
-
+  ] =
+    useState<AccessDecision | null>(
+      null
+    );
 
   const [
     doorOpen,
     setDoorOpen
-  ] = useState(false);
-
+  ] =
+    useState(false);
 
   const [
     eventProcessing,
     setEventProcessing
-  ] = useState(false);
+  ] =
+    useState(false);
+
+  const [
+    livenessPhase,
+    setLivenessPhase
+  ] =
+    useState<LivenessPhase>(
+      "IDLE"
+    );
+
+  const [
+    livenessProgress,
+    setLivenessProgress
+  ] =
+    useState(0);
+
+  const [
+    livenessMessage,
+    setLivenessMessage
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    livenessYaw,
+    setLivenessYaw
+  ] =
+    useState<number | null>(
+      null
+    );
 
 
   // ==========================================
-  // REINICIAR CONFIRMACION
+  // RESET CONFIRMACION
   // ==========================================
 
   const resetConfirmation =
@@ -225,10 +322,8 @@ function ControlAccesoPage() {
       pendingIdentityRef.current =
         null;
 
-
       consecutiveRef.current =
         0;
-
 
       setConfirmationCount(
         0
@@ -238,7 +333,54 @@ function ControlAccesoPage() {
 
 
   // ==========================================
-  // REARMAR SISTEMA
+  // RESET LIVENESS
+  // ==========================================
+
+  const resetLiveness =
+    () => {
+
+      livenessPreparingRef.current =
+        false;
+
+      livenessActiveRef.current =
+        false;
+
+      livenessProcessingRef.current =
+        false;
+
+      livenessPersonIdRef.current =
+        null;
+
+      livenessSuccessRef.current =
+        0;
+
+      livenessStartedAtRef.current =
+        0;
+
+      confirmedFrameRef.current =
+        null;
+
+      setLivenessPhase(
+        "IDLE"
+      );
+
+      setLivenessProgress(
+        0
+      );
+
+      setLivenessMessage(
+        null
+      );
+
+      setLivenessYaw(
+        null
+      );
+
+    };
+
+
+  // ==========================================
+  // REARMAR
   // ==========================================
 
   const rearmSystem =
@@ -247,36 +389,31 @@ function ControlAccesoPage() {
       decisionLockedRef.current =
         false;
 
-
       eventProcessingRef.current =
         false;
 
-
       missingFramesRef.current =
         0;
-
 
       setMissingFrames(
         0
       );
 
-
       setAccessDecision(
         null
       );
-
 
       setDoorOpen(
         false
       );
 
-
       setEventProcessing(
         false
       );
 
-
       resetConfirmation();
+
+      resetLiveness();
 
     };
 
@@ -287,7 +424,8 @@ function ControlAccesoPage() {
 
   useEffect(() => {
 
-    let cancelled = false;
+    let cancelled =
+      false;
 
 
     const startCamera =
@@ -313,7 +451,8 @@ function ControlAccesoPage() {
                     },
                   },
 
-                  audio: false,
+                  audio:
+                    false,
                 }
               );
 
@@ -348,7 +487,6 @@ function ControlAccesoPage() {
           video.srcObject =
             stream;
 
-
           await video.play();
 
 
@@ -357,7 +495,6 @@ function ControlAccesoPage() {
             setCameraReady(
               true
             );
-
 
             setError(
               null
@@ -392,7 +529,8 @@ function ControlAccesoPage() {
 
     return () => {
 
-      cancelled = true;
+      cancelled =
+        true;
 
 
       streamRef.current
@@ -424,7 +562,7 @@ function ControlAccesoPage() {
 
 
   // ==========================================
-  // CAPTURA DE FRAME
+  // CAPTURAR FRAME
   // ==========================================
 
   const captureFrame =
@@ -432,7 +570,6 @@ function ControlAccesoPage() {
 
       const video =
         videoRef.current;
-
 
       const canvas =
         canvasRef.current;
@@ -455,7 +592,6 @@ function ControlAccesoPage() {
 
       canvas.width =
         video.videoWidth;
-
 
       canvas.height =
         video.videoHeight;
@@ -499,7 +635,380 @@ function ControlAccesoPage() {
 
 
   // ==========================================
-  // PROCESAR EVENTO REAL
+  // LLAMAR LIVENESS
+  // ==========================================
+
+  const analyzeLiveness =
+    async (
+      frame: Blob
+    ): Promise<LivenessResponse> => {
+
+      const formData =
+        new FormData();
+
+
+      formData.append(
+        "imagen",
+        frame,
+        "liveness.jpg"
+      );
+
+
+      const response =
+        await apiFetch(
+          "http://127.0.0.1:8000/api/control-acceso/liveness",
+          {
+            method:
+              "POST",
+
+            body:
+              formData,
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          typeof data.detail
+          === "string"
+            ? data.detail
+            : (
+                "No fue posible realizar "
+                + "la prueba de vida."
+              )
+        );
+
+      }
+
+
+      return (
+        data as LivenessResponse
+      );
+
+    };
+
+
+  // ==========================================
+  // INICIAR PRUEBA DE VIDA
+  // ==========================================
+
+  const startLiveness =
+    async (
+      recognition:
+        RecognitionResponse,
+
+      frame:
+        Blob
+    ) => {
+
+      if (
+        livenessPreparingRef.current
+        ||
+        livenessActiveRef.current
+        ||
+        !recognition.persona
+      ) {
+
+        return;
+
+      }
+
+
+      livenessPreparingRef.current =
+        true;
+
+
+      setLivenessPhase(
+        "PREPARING"
+      );
+
+
+      setLivenessMessage(
+        "Mantenga el rostro de frente."
+      );
+
+
+      try {
+
+        const liveness =
+          await analyzeLiveness(
+            frame
+          );
+
+
+        setLivenessYaw(
+          liveness.yaw_score
+        );
+
+
+        if (
+          liveness.estado
+          !== "OK"
+        ) {
+
+          setLivenessMessage(
+            "Mantenga solamente un rostro "
+            + "frente a la cámara."
+          );
+
+          resetConfirmation();
+
+          return;
+
+        }
+
+
+        if (
+          !liveness.frontal
+        ) {
+
+          setLivenessMessage(
+            "Mire directamente a la cámara "
+            + "para iniciar la prueba de vida."
+          );
+
+          resetConfirmation();
+
+          return;
+
+        }
+
+
+        confirmedFrameRef.current =
+          frame;
+
+
+        livenessPersonIdRef.current =
+          recognition.persona.id;
+
+
+        livenessSuccessRef.current =
+          0;
+
+
+        livenessStartedAtRef.current =
+          Date.now();
+
+
+        livenessActiveRef.current =
+          true;
+
+
+        setLivenessPhase(
+          "TURN"
+        );
+
+
+        setLivenessProgress(
+          0
+        );
+
+
+        setLivenessMessage(
+          "Gire la cabeza hacia un lado "
+          + "y manténgala un momento."
+        );
+
+
+      } catch (err) {
+
+        if (
+          err instanceof Error
+        ) {
+
+          setError(
+            err.message
+          );
+
+        }
+
+
+        resetLiveness();
+
+
+      } finally {
+
+        livenessPreparingRef.current =
+          false;
+
+      }
+
+    };
+
+
+  // ==========================================
+  // VALIDAR GIRO
+  // ==========================================
+
+  const checkTurnLiveness =
+    async (
+      frame: Blob
+    ) => {
+
+      if (
+        !livenessActiveRef.current
+        ||
+        livenessProcessingRef.current
+      ) {
+
+        return;
+
+      }
+
+
+      if (
+        Date.now()
+        -
+        livenessStartedAtRef.current
+        >
+        LIVENESS_TIMEOUT_MS
+      ) {
+
+        resetLiveness();
+
+        resetConfirmation();
+
+        setLivenessMessage(
+          "La prueba de vida expiró. "
+          + "Mire nuevamente a la cámara."
+        );
+
+        return;
+
+      }
+
+
+      livenessProcessingRef.current =
+        true;
+
+
+      try {
+
+        const liveness =
+          await analyzeLiveness(
+            frame
+          );
+
+
+        setLivenessYaw(
+          liveness.yaw_score
+        );
+
+
+        if (
+          liveness.estado
+          !== "OK"
+        ) {
+
+          livenessSuccessRef.current =
+            0;
+
+          setLivenessProgress(
+            0
+          );
+
+          return;
+
+        }
+
+
+        if (
+          liveness.giro_detectado
+        ) {
+
+          livenessSuccessRef.current =
+            Math.min(
+              livenessSuccessRef.current
+              + 1,
+              REQUIRED_LIVENESS_FRAMES
+            );
+
+
+          setLivenessProgress(
+            livenessSuccessRef.current
+          );
+
+
+          if (
+            livenessSuccessRef.current
+            >=
+            REQUIRED_LIVENESS_FRAMES
+          ) {
+
+            livenessActiveRef.current =
+              false;
+
+
+            decisionLockedRef.current =
+              true;
+
+
+            setLivenessPhase(
+              "PASSED"
+            );
+
+
+            setLivenessMessage(
+              "Prueba de vida superada."
+            );
+
+
+            const eventFrame =
+              confirmedFrameRef.current
+              ??
+              frame;
+
+
+            void processAccessEvent(
+              eventFrame
+            );
+
+          }
+
+
+        } else {
+
+          livenessSuccessRef.current =
+            0;
+
+
+          setLivenessProgress(
+            0
+          );
+
+        }
+
+
+      } catch (err) {
+
+        if (
+          err instanceof Error
+        ) {
+
+          setError(
+            err.message
+          );
+
+        }
+
+
+      } finally {
+
+        livenessProcessingRef.current =
+          false;
+
+      }
+
+    };
+
+
+  // ==========================================
+  // PROCESAR EVENTO
   // ==========================================
 
   const processAccessEvent =
@@ -544,10 +1053,11 @@ function ControlAccesoPage() {
 
 
         const response =
-          await fetch(
+          await apiFetch(
             "http://127.0.0.1:8000/api/control-acceso/procesar-evento",
             {
-              method: "POST",
+              method:
+                "POST",
 
               body:
                 formData,
@@ -614,10 +1124,6 @@ function ControlAccesoPage() {
         );
 
 
-        // ====================================
-        // PUERTA
-        // ====================================
-
         if (
           event.puerta_abierta
         ) {
@@ -652,10 +1158,13 @@ function ControlAccesoPage() {
                   null;
 
               },
+
               event
                 .puerta_abierta_segundos
-              * 1000
+              *
+              1000
             );
+
 
         } else {
 
@@ -679,14 +1188,13 @@ function ControlAccesoPage() {
         }
 
 
-        // Si el backend rechaza el evento,
-        // permitimos intentar nuevamente.
-
         decisionLockedRef.current =
           false;
 
 
         resetConfirmation();
+
+        resetLiveness();
 
 
       } finally {
@@ -705,7 +1213,7 @@ function ControlAccesoPage() {
 
 
   // ==========================================
-  // PROCESAR RESPUESTA DE RECONOCIMIENTO
+  // PROCESAR RECONOCIMIENTO
   // ==========================================
 
   const processRecognition =
@@ -741,7 +1249,8 @@ function ControlAccesoPage() {
 
           if (
             missingFramesRef.current
-            >= REQUIRED_MISSING_FRAMES
+            >=
+            REQUIRED_MISSING_FRAMES
             &&
             !eventProcessingRef.current
           ) {
@@ -749,6 +1258,7 @@ function ControlAccesoPage() {
             rearmSystem();
 
           }
+
 
         } else {
 
@@ -762,6 +1272,55 @@ function ControlAccesoPage() {
 
         }
 
+
+        return;
+
+      }
+
+
+      // ======================================
+      // PRUEBA DE VIDA ACTIVA
+      // ======================================
+
+      if (
+        livenessActiveRef.current
+      ) {
+
+        if (
+          recognition.estado
+          === "RECONOCIDO"
+          &&
+          recognition.persona
+          &&
+          recognition.persona.id
+          ===
+          livenessPersonIdRef.current
+        ) {
+
+          void checkTurnLiveness(
+            frame
+          );
+
+        } else {
+
+          livenessSuccessRef.current =
+            0;
+
+          setLivenessProgress(
+            0
+          );
+
+        }
+
+
+        return;
+
+      }
+
+
+      if (
+        livenessPreparingRef.current
+      ) {
 
         return;
 
@@ -785,7 +1344,7 @@ function ControlAccesoPage() {
 
 
       // ======================================
-      // MULTIPLES ROSTROS
+      // MULTIPLES
       // ======================================
 
       if (
@@ -843,7 +1402,7 @@ function ControlAccesoPage() {
 
 
       // ======================================
-      // CONFIRMACION CONSECUTIVA
+      // CONFIRMACION
       // ======================================
 
       if (
@@ -854,11 +1413,11 @@ function ControlAccesoPage() {
         consecutiveRef.current +=
           1;
 
+
       } else {
 
         pendingIdentityRef.current =
           identity;
-
 
         consecutiveRef.current =
           1;
@@ -877,17 +1436,37 @@ function ControlAccesoPage() {
 
       if (
         consecutiveRef.current
-        >= REQUIRED_CONFIRMATIONS
+        >=
+        REQUIRED_CONFIRMATIONS
       ) {
 
-        // Bloqueamos inmediatamente para
-        // impedir eventos duplicados.
+        resetConfirmation();
 
+
+        // Persona reconocida:
+        // ahora exige prueba de vida.
+        if (
+          recognition.estado
+          === "RECONOCIDO"
+          &&
+          recognition.persona
+        ) {
+
+          void startLiveness(
+            recognition,
+            frame
+          );
+
+
+          return;
+
+        }
+
+
+        // Persona desconocida:
+        // se rechaza directamente.
         decisionLockedRef.current =
           true;
-
-
-        resetConfirmation();
 
 
         void processAccessEvent(
@@ -900,7 +1479,7 @@ function ControlAccesoPage() {
 
 
   // ==========================================
-  // RECONOCIMIENTO CONTINUO
+  // LOOP DE RECONOCIMIENTO
   // ==========================================
 
   useEffect(() => {
@@ -916,7 +1495,8 @@ function ControlAccesoPage() {
     }
 
 
-    let cancelled = false;
+    let cancelled =
+      false;
 
 
     const recognize =
@@ -960,7 +1540,7 @@ function ControlAccesoPage() {
 
 
           const response =
-            await fetch(
+            await apiFetch(
               "http://127.0.0.1:8000/api/control-acceso/reconocer",
               {
                 method:
@@ -1047,13 +1627,14 @@ function ControlAccesoPage() {
           void recognize();
 
         },
-        900
+        700
       );
 
 
     return () => {
 
-      cancelled = true;
+      cancelled =
+        true;
 
 
       window.clearInterval(
@@ -1094,6 +1675,42 @@ function ControlAccesoPage() {
           accessDecision.autorizado
             ? "ACCESO AUTORIZADO"
             : "ACCESO RECHAZADO"
+        );
+
+      }
+
+
+      if (
+        livenessPhase
+        === "PREPARING"
+      ) {
+
+        return (
+          "PREPARANDO PRUEBA DE VIDA"
+        );
+
+      }
+
+
+      if (
+        livenessPhase
+        === "TURN"
+      ) {
+
+        return (
+          "PRUEBA DE VIDA"
+        );
+
+      }
+
+
+      if (
+        livenessPhase
+        === "PASSED"
+      ) {
+
+        return (
+          "PRUEBA DE VIDA SUPERADA"
         );
 
       }
@@ -1152,7 +1769,7 @@ function ControlAccesoPage() {
 
 
   // ==========================================
-  // PERSONA MOSTRADA
+  // PERSONA
   // ==========================================
 
   const displayedPerson =
@@ -1164,7 +1781,7 @@ function ControlAccesoPage() {
 
 
   // ==========================================
-  // SIMILITUD MOSTRADA
+  // SIMILITUD
   // ==========================================
 
   const displayedSimilarity =
@@ -1212,7 +1829,6 @@ function ControlAccesoPage() {
                   !current
               );
 
-
               rearmSystem();
 
             }
@@ -1230,21 +1846,22 @@ function ControlAccesoPage() {
       </header>
 
 
-      {error && (
+      {
+        error
+        && (
 
-        <div className="error-message">
-          {error}
-        </div>
+          <div className="error-message">
+            {error}
+          </div>
 
-      )}
+        )
+      }
 
 
       <section className="control-access-grid">
 
 
-        {/* ===================================
-            CAMARA
-        ==================================== */}
+        {/* CAMARA */}
 
         <div className="control-camera-panel">
 
@@ -1261,15 +1878,16 @@ function ControlAccesoPage() {
             />
 
 
-            {!cameraReady && (
+            {
+              !cameraReady
+              && (
 
-              <div className="camera-loading">
+                <div className="camera-loading">
+                  Iniciando cámara...
+                </div>
 
-                Iniciando cámara...
-
-              </div>
-
-            )}
+              )
+            }
 
 
             <div
@@ -1309,9 +1927,7 @@ function ControlAccesoPage() {
         </div>
 
 
-        {/* ===================================
-            RESULTADO
-        ==================================== */}
+        {/* RESULTADO */}
 
         <div
           className={
@@ -1335,7 +1951,10 @@ function ControlAccesoPage() {
                   ? "✓"
                   : accessDecision
                     ? "✕"
-                    : "◎"
+                    : livenessPhase
+                      === "TURN"
+                      ? "↔"
+                      : "◎"
             }
 
           </div>
@@ -1393,25 +2012,14 @@ function ControlAccesoPage() {
                 {
                   eventProcessing
                     ? (
-                      "Registrando el evento "
-                      + "y procesando "
-                      + "notificaciones..."
+                      "Registrando el evento..."
                     )
                     : accessDecision
                       ? (
                         "La persona no está "
-                        + "registrada "
-                        + "en el sistema."
+                        + "registrada en el sistema."
                       )
-                      : result?.estado
-                        === "MULTIPLES_ROSTROS"
-                        ? (
-                          "Debe aparecer "
-                          + "solamente una "
-                          + "persona frente "
-                          + "a la cámara."
-                        )
-                        : (
+                      : (
                           "Coloque su rostro "
                           + "frente a la cámara."
                         )
@@ -1449,14 +2057,83 @@ function ControlAccesoPage() {
           }
 
 
-          {/* =================================
-              CONFIRMACION
-          ================================== */}
+          {/* PRUEBA DE VIDA */}
+
+          {
+            livenessMessage
+            &&
+            !accessDecision
+            && (
+
+              <div className="recognition-confirmation">
+
+                {
+                  livenessMessage
+                }
+
+                {
+                  livenessPhase
+                  === "TURN"
+                  && (
+
+                    <strong>
+
+                      {
+                        livenessProgress
+                      }
+                      /
+                      {
+                        REQUIRED_LIVENESS_FRAMES
+                      }
+
+                    </strong>
+
+                  )
+                }
+
+              </div>
+
+            )
+          }
+
+
+          {
+            livenessPhase
+            === "TURN"
+            &&
+            livenessYaw
+            !== null
+            && (
+
+              <div className="recognition-threshold">
+
+                Movimiento facial:{" "}
+
+                <strong>
+                  {
+                    Math
+                      .abs(
+                        livenessYaw
+                      )
+                      .toFixed(3)
+                  }
+                </strong>
+
+              </div>
+
+            )
+          }
+
+
+          {/* CONFIRMACION IDENTIDAD */}
 
           {
             !accessDecision
             &&
             !eventProcessing
+            &&
+            livenessPhase
+            === "IDLE"
             &&
             confirmationCount > 0
             && (
@@ -1483,9 +2160,7 @@ function ControlAccesoPage() {
           }
 
 
-          {/* =================================
-              ID DEL EVENTO
-          ================================== */}
+          {/* EVENTO */}
 
           {
             accessDecision
@@ -1511,9 +2186,7 @@ function ControlAccesoPage() {
           }
 
 
-          {/* =================================
-              PUERTA
-          ================================== */}
+          {/* PUERTA */}
 
           {
             accessDecision
@@ -1540,9 +2213,7 @@ function ControlAccesoPage() {
           }
 
 
-          {/* =================================
-              NOTIFICACIONES
-          ================================== */}
+          {/* NOTIFICACIONES */}
 
           {
             accessDecision
@@ -1550,28 +2221,21 @@ function ControlAccesoPage() {
 
               <div className="recognition-threshold">
 
-                Notificaciones enviadas:{" "}
+                Notificaciones:{" "}
 
                 <strong>
 
                   {
                     accessDecision
                       .notifications
-                      .enviadas
-                  }
-
-                </strong>
-
-                {" · "}
-
-                Errores:{" "}
-
-                <strong>
-
-                  {
-                    accessDecision
-                      .notifications
-                      .errores
+                      .detalle
+                    ??
+                    (
+                      accessDecision
+                        .notifications
+                        .enviadas
+                      + " enviadas"
+                    )
                   }
 
                 </strong>
@@ -1582,9 +2246,7 @@ function ControlAccesoPage() {
           }
 
 
-          {/* =================================
-              EVIDENCIA
-          ================================== */}
+          {/* EVIDENCIA */}
 
           {
             accessDecision
@@ -1610,9 +2272,7 @@ function ControlAccesoPage() {
           }
 
 
-          {/* =================================
-              REARME
-          ================================== */}
+          {/* REARME */}
 
           {
             accessDecision
@@ -1649,7 +2309,8 @@ function ControlAccesoPage() {
 
               {
                 result?.threshold
-                ?? 0.45
+                ??
+                0.45
               }
 
             </strong>
@@ -1659,9 +2320,9 @@ function ControlAccesoPage() {
 
           <div className="recognition-preview-note">
 
-            Terminal conectado a PostgreSQL,
-            notificaciones y control de puerta
-            mediante MQTT / ESP32.
+            Terminal conectada a PostgreSQL,
+            notificaciones y control físico
+            mediante USB/Serial + ESP32.
 
           </div>
 

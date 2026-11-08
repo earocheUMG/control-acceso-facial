@@ -1,4 +1,5 @@
 import os
+import time
 
 from datetime import datetime
 from pathlib import Path
@@ -30,7 +31,7 @@ from backend.services.recognition_service import (
     recognize_face_with_artifacts
 )
 
-from backend.services.door_service import (
+from backend.services.serial_service import (
     open_door
 )
 
@@ -69,6 +70,17 @@ SECURITY_EMAIL = (
 
 DOOR_OPEN_TIME = 3
 
+# Pequeña diferencia para garantizar que
+# React pinte primero el acceso autorizado.
+DOOR_ACTIVATION_DELAY = 0.20
+
+# El indicador visual permanece ligeramente
+# más tiempo para sincronizarse con el relé.
+DOOR_DISPLAY_TIME = (
+    DOOR_OPEN_TIME
+    + DOOR_ACTIVATION_DELAY
+)
+
 
 # =============================================
 # BUSCAR PERSONA
@@ -104,7 +116,10 @@ def save_unknown_evidence(
     aligned_face
 ):
 
-    if aligned_face is None:
+    if (
+        aligned_face
+        is None
+    ):
 
         return None
 
@@ -172,11 +187,67 @@ def format_access_date(
             )
         )
 
-
     except Exception:
 
         return str(
             access_date
+        )
+
+
+# =============================================
+# ABRIR PUERTA EN SEGUNDO PLANO
+# =============================================
+
+def activate_door_background():
+
+    try:
+
+        # Permitimos que el navegador reciba
+        # la respuesta y actualice primero
+        # el estado visual.
+        time.sleep(
+            DOOR_ACTIVATION_DELAY
+        )
+
+
+        door_result = (
+            open_door()
+        )
+
+
+        if (
+            door_result.get(
+                "ok",
+                False
+            )
+        ):
+
+            print(
+                "ESP32: apertura física "
+                "confirmada."
+            )
+
+        else:
+
+            print(
+                "ESP32: no fue posible "
+                "confirmar la apertura."
+            )
+
+            print(
+                door_result
+            )
+
+
+    except Exception as error:
+
+        print(
+            "ERROR ACTIVANDO PUERTA "
+            "EN SEGUNDO PLANO:"
+        )
+
+        print(
+            error
         )
 
 
@@ -198,11 +269,15 @@ def notify_authorized_access(
 
 
     sent = 0
-
     errors = 0
 
 
     if not recipients:
+
+        print(
+            "NOTIFICACION: no existen "
+            "destinatarios configurados."
+        )
 
         return {
             "enviadas": 0,
@@ -299,9 +374,25 @@ def notify_authorized_access(
             sent += 1
 
 
+            print(
+                "NOTIFICACION: correo "
+                f"enviado a {email}"
+            )
+
+
         except Exception as error:
 
             errors += 1
+
+
+            print(
+                "ERROR enviando correo "
+                f"a {email}:"
+            )
+
+            print(
+                error
+            )
 
 
             if notification:
@@ -312,7 +403,6 @@ def notify_authorized_access(
                         notification["id"],
                         str(error)
                     )
-
 
                 except Exception:
 
@@ -341,14 +431,23 @@ def notify_security_alert(
 
     if not SECURITY_EMAIL:
 
-        return {
-            "enviadas": 0,
+        print(
+            "NOTIFICACION: SECURITY_EMAIL "
+            "no configurado."
+        )
 
-            "errores": 1,
+        return {
+            "enviadas":
+                0,
+
+            "errores":
+                1,
 
             "detalle":
-                "SECURITY_EMAIL "
-                "no configurado."
+                (
+                    "SECURITY_EMAIL "
+                    "no configurado."
+                )
         }
 
 
@@ -403,13 +502,32 @@ def notify_security_alert(
         )
 
 
+        print(
+            "NOTIFICACION: alerta de "
+            "seguridad enviada."
+        )
+
+
         return {
-            "enviadas": 1,
-            "errores": 0
+            "enviadas":
+                1,
+
+            "errores":
+                0
         }
 
 
     except Exception as error:
+
+        print(
+            "ERROR enviando alerta "
+            "de seguridad:"
+        )
+
+        print(
+            error
+        )
+
 
         if notification:
 
@@ -420,16 +538,17 @@ def notify_security_alert(
                     str(error)
                 )
 
-
             except Exception:
 
                 pass
 
 
         return {
-            "enviadas": 0,
+            "enviadas":
+                0,
 
-            "errores": 1,
+            "errores":
+                1,
 
             "detalle":
                 str(error)
@@ -437,11 +556,33 @@ def notify_security_alert(
 
 
 # =============================================
+# RESULTADO NOTIFICACION PENDIENTE
+# =============================================
+
+def pending_notification_result():
+
+    return {
+        "enviadas":
+            0,
+
+        "errores":
+            0,
+
+        "detalle":
+            (
+                "La notificación se está "
+                "procesando en segundo plano."
+            )
+    }
+
+
+# =============================================
 # PROCESAR EVENTO
 # =============================================
 
 def process_access_event(
-    image_bytes
+    image_bytes,
+    background_tasks=None
 ):
 
     recognition, aligned_face = (
@@ -518,43 +659,6 @@ def process_access_event(
 
 
         # =====================================
-        # APERTURA FISICA / ESP32
-        # =====================================
-
-        door_result = (
-            open_door()
-        )
-
-
-        door_opened = bool(
-            door_result.get(
-                "enviado",
-                False
-            )
-        )
-
-
-        if door_opened:
-
-            print(
-                "ESP32: comando OPEN "
-                "enviado correctamente."
-            )
-
-        else:
-
-            print(
-                "ADVERTENCIA: "
-                "No fue posible enviar "
-                "OPEN al ESP32."
-            )
-
-            print(
-                door_result
-            )
-
-
-        # =====================================
         # REGISTRAR ACCESO
         # =====================================
 
@@ -575,7 +679,7 @@ def process_access_event(
                     ],
 
                 puerta_abierta=
-                    door_opened,
+                    True,
 
                 motivo=
                     None,
@@ -587,25 +691,57 @@ def process_access_event(
 
 
         # =====================================
-        # NOTIFICACION
+        # TAREAS EN SEGUNDO PLANO
         # =====================================
 
-        notification_result = (
-            notify_authorized_access(
-                access=
-                    access,
+        if (
+            background_tasks
+            is not None
+        ):
 
-                person=
-                    person,
-
-                access_point=
-                    access_point
+            # IMPORTANTE:
+            # se agrega primero la apertura.
+            background_tasks.add_task(
+                activate_door_background
             )
-        )
+
+
+            background_tasks.add_task(
+                notify_authorized_access,
+                access,
+                person,
+                access_point
+            )
+
+
+            notification_result = (
+                pending_notification_result()
+            )
+
+
+        else:
+
+            # Compatibilidad para llamadas
+            # directas sin FastAPI.
+            activate_door_background()
+
+
+            notification_result = (
+                notify_authorized_access(
+                    access=
+                        access,
+
+                    person=
+                        person,
+
+                    access_point=
+                        access_point
+                )
+            )
 
 
         # =====================================
-        # RESPUESTA
+        # RESPUESTA INMEDIATA
         # =====================================
 
         return {
@@ -619,14 +755,26 @@ def process_access_event(
                 "AUTORIZADO",
 
             "puerta_abierta":
-                door_opened,
+                True,
 
             "puerta_abierta_segundos":
-                (
-                    DOOR_OPEN_TIME
-                    if door_opened
-                    else 0
-                ),
+                DOOR_DISPLAY_TIME,
+
+            "hardware": {
+                "ok":
+                    True,
+
+                "estado":
+                    "PENDIENTE",
+
+                "mensaje":
+                    (
+                        "La apertura física se "
+                        "ejecutará inmediatamente "
+                        "después de responder "
+                        "al navegador."
+                    )
+            },
 
             "evidencia":
                 None,
@@ -635,10 +783,7 @@ def process_access_event(
                 recognition,
 
             "notificaciones":
-                notification_result,
-
-            "hardware":
-                door_result
+                notification_result
         }
 
 
@@ -652,10 +797,6 @@ def process_access_event(
         )
     )
 
-
-    # =========================================
-    # REGISTRAR ACCESO RECHAZADO
-    # =========================================
 
     access = (
         register_access(
@@ -686,31 +827,50 @@ def process_access_event(
 
 
     # =========================================
-    # ALERTA A SEGURIDAD
+    # ALERTA EN SEGUNDO PLANO
     # =========================================
 
-    notification_result = (
-        notify_security_alert(
-            access=
-                access,
+    if (
+        background_tasks
+        is not None
+    ):
 
-            access_point=
-                access_point,
-
-            similarity=
-                recognition[
-                    "similitud"
-                ],
-
-            evidence_path=
-                evidence_path
+        background_tasks.add_task(
+            notify_security_alert,
+            access,
+            access_point,
+            recognition[
+                "similitud"
+            ],
+            evidence_path
         )
-    )
 
 
-    # =========================================
-    # RESPUESTA RECHAZADA
-    # =========================================
+        notification_result = (
+            pending_notification_result()
+        )
+
+
+    else:
+
+        notification_result = (
+            notify_security_alert(
+                access=
+                    access,
+
+                access_point=
+                    access_point,
+
+                similarity=
+                    recognition[
+                        "similitud"
+                    ],
+
+                evidence_path=
+                    evidence_path
+            )
+        )
+
 
     return {
         "evento_registrado":
@@ -728,6 +888,18 @@ def process_access_event(
         "puerta_abierta_segundos":
             0,
 
+        "hardware": {
+            "ok":
+                False,
+
+            "mensaje":
+                (
+                    "No se envía ninguna "
+                    "orden de apertura para "
+                    "un acceso rechazado."
+                )
+        },
+
         "evidencia":
             evidence_path,
 
@@ -735,22 +907,5 @@ def process_access_event(
             recognition,
 
         "notificaciones":
-            notification_result,
-
-        "hardware": {
-            "enviado":
-                False,
-
-            "estado":
-                "NO_APLICA",
-
-            "comando":
-                None,
-
-            "detalle":
-                (
-                    "No se envía comando al "
-                    "ESP32 para accesos rechazados."
-                )
-        }
+            notification_result
     }

@@ -1,14 +1,17 @@
 from fastapi import (
     APIRouter,
-    Depends,
+    BackgroundTasks,
     File,
     HTTPException,
-    Request,
     UploadFile
 )
 
 from backend.services.access_event_service import (
     process_access_event
+)
+
+from backend.services.liveness_service import (
+    analyze_liveness
 )
 
 from backend.services.recognition_service import (
@@ -17,8 +20,12 @@ from backend.services.recognition_service import (
 
 
 router = APIRouter(
-    prefix="/api/control-acceso",
-    tags=["Control de acceso"]
+    prefix=
+        "/api/control-acceso",
+
+    tags=[
+        "Control de acceso"
+    ]
 )
 
 
@@ -36,52 +43,6 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 
-LOCAL_TERMINAL_HOSTS = {
-    "127.0.0.1",
-    "::1"
-}
-
-
-# =============================================
-# VALIDAR TERMINAL LOCAL
-# =============================================
-
-def validate_local_terminal(
-    request: Request
-):
-
-    client = request.client
-
-
-    if client is None:
-
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "No fue posible identificar "
-                "el terminal de acceso."
-            )
-        )
-
-
-    if (
-        client.host
-        not in LOCAL_TERMINAL_HOSTS
-    ):
-
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "El servicio de control de acceso "
-                "solo está disponible para el "
-                "terminal local autorizado."
-            )
-        )
-
-
-    return client.host
-
-
 # =============================================
 # LEER Y VALIDAR IMAGEN
 # =============================================
@@ -96,7 +57,9 @@ async def read_image(
     ):
 
         raise HTTPException(
-            status_code=400,
+            status_code=
+                400,
+
             detail=(
                 "El archivo enviado "
                 "debe ser una imagen."
@@ -112,7 +75,9 @@ async def read_image(
     if not content:
 
         raise HTTPException(
-            status_code=400,
+            status_code=
+                400,
+
             detail=(
                 "La imagen está vacía."
             )
@@ -121,11 +86,14 @@ async def read_image(
 
     if (
         len(content)
-        > MAX_IMAGE_SIZE
+        >
+        MAX_IMAGE_SIZE
     ):
 
         raise HTTPException(
-            status_code=400,
+            status_code=
+                400,
+
             detail=(
                 "La imagen supera "
                 "el límite de 5 MB."
@@ -144,11 +112,10 @@ async def read_image(
     "/reconocer"
 )
 async def recognize_access_frame(
-    imagen: UploadFile = File(...),
-    _terminal=
-        Depends(
-            validate_local_terminal
-        )
+    imagen:
+        UploadFile
+        =
+        File(...)
 ):
 
     content = (
@@ -170,18 +137,99 @@ async def recognize_access_frame(
     except ValueError as error:
 
         raise HTTPException(
-            status_code=400,
-            detail=str(error)
+            status_code=
+                400,
+
+            detail=
+                str(
+                    error
+                )
         )
 
 
-    except Exception:
+    except Exception as error:
+
+        print(
+            "ERROR EN RECONOCIMIENTO:"
+        )
+
+        print(
+            error
+        )
+
 
         raise HTTPException(
-            status_code=500,
+            status_code=
+                500,
+
             detail=(
                 "No fue posible procesar "
                 "el reconocimiento facial."
+            )
+        )
+
+
+# =============================================
+# PRUEBA DE VIDA
+# =============================================
+
+@router.post(
+    "/liveness"
+)
+async def liveness_check(
+    imagen:
+        UploadFile
+        =
+        File(...)
+):
+
+    content = (
+        await read_image(
+            imagen
+        )
+    )
+
+
+    try:
+
+        return (
+            analyze_liveness(
+                content
+            )
+        )
+
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=
+                400,
+
+            detail=
+                str(
+                    error
+                )
+        )
+
+
+    except Exception as error:
+
+        print(
+            "ERROR EN PRUEBA DE VIDA:"
+        )
+
+        print(
+            error
+        )
+
+
+        raise HTTPException(
+            status_code=
+                500,
+
+            detail=(
+                "No fue posible realizar "
+                "la prueba de vida."
             )
         )
 
@@ -194,11 +242,13 @@ async def recognize_access_frame(
     "/procesar-evento"
 )
 async def process_confirmed_access(
-    imagen: UploadFile = File(...),
-    _terminal=
-        Depends(
-            validate_local_terminal
-        )
+    background_tasks:
+        BackgroundTasks,
+
+    imagen:
+        UploadFile
+        =
+        File(...)
 ):
 
     content = (
@@ -212,7 +262,10 @@ async def process_confirmed_access(
 
         return (
             process_access_event(
-                content
+                content,
+
+                background_tasks=
+                    background_tasks
             )
         )
 
@@ -220,8 +273,13 @@ async def process_confirmed_access(
     except ValueError as error:
 
         raise HTTPException(
-            status_code=400,
-            detail=str(error)
+            status_code=
+                400,
+
+            detail=
+                str(
+                    error
+                )
         )
 
 
@@ -232,11 +290,15 @@ async def process_confirmed_access(
             "DE ACCESO:"
         )
 
-        print(error)
+        print(
+            error
+        )
 
 
         raise HTTPException(
-            status_code=500,
+            status_code=
+                500,
+
             detail=(
                 "No fue posible registrar "
                 "el evento de acceso."
