@@ -51,6 +51,10 @@ SMTP_FROM = os.getenv(
     SMTP_USER
 )
 
+SECURITY_EMAIL = os.getenv(
+    "SECURITY_EMAIL"
+)
+
 
 # =============================================
 # ENVIO GENERICO DE CORREO
@@ -60,7 +64,8 @@ def send_email(
     recipient,
     subject,
     body,
-    attachment_path=None
+    attachment_path=None,
+    bcc=None
 ):
 
     if not SMTP_HOST:
@@ -88,6 +93,13 @@ def send_email(
     message["From"] = SMTP_FROM
     message["To"] = recipient
     message["Subject"] = subject
+
+    # =========================================
+    # COPIA OCULTA
+    # =========================================
+
+    if bcc:
+        message["Bcc"] = bcc
 
     message.set_content(
         body
@@ -199,7 +211,8 @@ por el Sistema de Control de Acceso Facial.
     send_email(
         recipient=recipient,
         subject=subject,
-        body=body
+        body=body,
+        bcc=SECURITY_EMAIL
     )
 
 

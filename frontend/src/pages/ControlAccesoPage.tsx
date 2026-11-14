@@ -17,6 +17,12 @@ interface RecognitionPerson {
 }
 
 
+interface CameraDeviceOption {
+  deviceId: string;
+  label: string;
+}
+
+
 interface RecognitionResponse {
   estado:
     | "SIN_ROSTRO"
@@ -228,6 +234,24 @@ function ControlAccesoPage() {
     useState(false);
 
   const [
+    cameraDevices,
+    setCameraDevices
+  ] =
+    useState<CameraDeviceOption[]>([]);
+
+  const [
+    selectedCameraId,
+    setSelectedCameraId
+  ] =
+    useState("");
+
+  const [
+    cameraSwitching,
+    setCameraSwitching
+  ] =
+    useState(false);
+
+  const [
     recognitionActive,
     setRecognitionActive
   ] =
@@ -422,6 +446,271 @@ function ControlAccesoPage() {
   // CAMARA
   // ==========================================
 
+  const refreshCameraDevices =
+    async (
+      activeDeviceId?: string
+    ) => {
+
+      const devices =
+        await navigator
+          .mediaDevices
+          .enumerateDevices();
+
+
+      const cameras =
+        devices
+          .filter(
+            (device) =>
+              device.kind
+              === "videoinput"
+          )
+          .map(
+            (
+              device,
+              index
+            ) => ({
+              deviceId:
+                device.deviceId,
+
+              label:
+                device.label
+                ||
+                `Cámara ${index + 1}`,
+            })
+          );
+
+
+      setCameraDevices(
+        cameras
+      );
+
+
+      if (
+        activeDeviceId
+        &&
+        cameras.some(
+          (camera) =>
+            camera.deviceId
+            === activeDeviceId
+        )
+      ) {
+
+        setSelectedCameraId(
+          activeDeviceId
+        );
+
+      } else if (
+        cameras.length > 0
+        &&
+        !selectedCameraId
+      ) {
+
+        setSelectedCameraId(
+          cameras[0].deviceId
+        );
+
+      }
+
+    };
+
+
+  const openCamera =
+    async (
+      deviceId?: string
+    ) => {
+
+      setCameraReady(
+        false
+      );
+
+
+      streamRef.current
+        ?.getTracks()
+        .forEach(
+          (track) =>
+            track.stop()
+        );
+
+
+      streamRef.current =
+        null;
+
+
+      const videoConstraints:
+        MediaTrackConstraints =
+        deviceId
+          ? {
+              deviceId: {
+                exact:
+                  deviceId,
+              },
+
+              width: {
+                ideal:
+                  1280,
+              },
+
+              height: {
+                ideal:
+                  720,
+              },
+            }
+          : {
+              facingMode:
+                "user",
+
+              width: {
+                ideal:
+                  1280,
+              },
+
+              height: {
+                ideal:
+                  720,
+              },
+            };
+
+
+      const stream =
+        await navigator
+          .mediaDevices
+          .getUserMedia(
+            {
+              video:
+                videoConstraints,
+
+              audio:
+                false,
+            }
+          );
+
+
+      streamRef.current =
+        stream;
+
+
+      const video =
+        videoRef.current;
+
+
+      if (!video) {
+
+        stream
+          .getTracks()
+          .forEach(
+            (track) =>
+              track.stop()
+          );
+
+
+        streamRef.current =
+          null;
+
+
+        throw new Error(
+          "No se encontró el elemento "
+          + "de video de la cámara."
+        );
+
+      }
+
+
+      video.srcObject =
+        stream;
+
+
+      await video.play();
+
+
+      const activeDeviceId =
+        stream
+          .getVideoTracks()[0]
+          ?.getSettings()
+          .deviceId;
+
+
+      await refreshCameraDevices(
+        activeDeviceId
+      );
+
+
+      setCameraReady(
+        true
+      );
+
+    };
+
+
+  const changeCamera =
+    async (
+      deviceId: string
+    ) => {
+
+      if (
+        !deviceId
+        ||
+        deviceId
+        === selectedCameraId
+        ||
+        cameraSwitching
+      ) {
+
+        return;
+
+      }
+
+
+      setCameraSwitching(
+        true
+      );
+
+
+      setError(
+        null
+      );
+
+
+      rearmSystem();
+
+
+      try {
+
+        await openCamera(
+          deviceId
+        );
+
+
+        setSelectedCameraId(
+          deviceId
+        );
+
+
+      } catch (err) {
+
+        if (
+          err instanceof Error
+        ) {
+
+          setError(
+            "No fue posible cambiar "
+            + "la cámara. "
+            + err.message
+          );
+
+        }
+
+
+      } finally {
+
+        setCameraSwitching(
+          false
+        );
+
+      }
+
+    };
+
+
   useEffect(() => {
 
     let cancelled =
@@ -433,68 +722,12 @@ function ControlAccesoPage() {
 
         try {
 
-          const stream =
-            await navigator
-              .mediaDevices
-              .getUserMedia(
-                {
-                  video: {
-                    facingMode:
-                      "user",
-
-                    width: {
-                      ideal: 1280,
-                    },
-
-                    height: {
-                      ideal: 720,
-                    },
-                  },
-
-                  audio:
-                    false,
-                }
-              );
+          await openCamera();
 
 
-          if (cancelled) {
-
-            stream
-              .getTracks()
-              .forEach(
-                (track) =>
-                  track.stop()
-              );
-
-            return;
-
-          }
-
-
-          streamRef.current =
-            stream;
-
-
-          const video =
-            videoRef.current;
-
-
-          if (!video) {
-            return;
-          }
-
-
-          video.srcObject =
-            stream;
-
-          await video.play();
-
-
-          if (!cancelled) {
-
-            setCameraReady(
-              true
-            );
+          if (
+            !cancelled
+          ) {
 
             setError(
               null
@@ -510,6 +743,11 @@ function ControlAccesoPage() {
             &&
             err instanceof Error
           ) {
+
+            setCameraReady(
+              false
+            );
+
 
             setError(
               "No fue posible abrir "
@@ -1883,7 +2121,11 @@ function ControlAccesoPage() {
               && (
 
                 <div className="camera-loading">
-                  Iniciando cámara...
+                  {
+                    cameraSwitching
+                      ? "Cambiando cámara..."
+                      : "Iniciando cámara..."
+                  }
                 </div>
 
               )
@@ -1923,6 +2165,100 @@ function ControlAccesoPage() {
             }
 
           </div>
+
+
+          {
+            cameraDevices.length > 0
+            && (
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: "0.45rem",
+                  padding: "0.85rem 1rem 1rem",
+                }}
+              >
+
+                <label
+                  htmlFor="camera-selector"
+                  style={{
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Cámara activa
+                </label>
+
+
+                <select
+                  id="camera-selector"
+                  value={
+                    selectedCameraId
+                  }
+                  disabled={
+                    cameraSwitching
+                    ||
+                    eventProcessing
+                  }
+                  onChange={
+                    (event) => {
+
+                      void changeCamera(
+                        event.target.value
+                      );
+
+                    }
+                  }
+                  style={{
+                    width: "100%",
+                    minHeight: "42px",
+                    padding: "0.65rem 0.8rem",
+                    borderRadius: "10px",
+                    border: "1px solid var(--border-color, #d7dee8)",
+                    background: "var(--surface, #ffffff)",
+                    color: "inherit",
+                    font: "inherit",
+                    cursor:
+                      cameraSwitching
+                        ? "wait"
+                        : "pointer",
+                  }}
+                >
+
+                  {
+                    cameraDevices.map(
+                      (
+                        camera,
+                        index
+                      ) => (
+
+                        <option
+                          key={
+                            camera.deviceId
+                          }
+                          value={
+                            camera.deviceId
+                          }
+                        >
+                          {
+                            camera.label
+                            ||
+                            `Cámara ${index + 1}`
+                          }
+                        </option>
+
+                      )
+                    )
+                  }
+
+                </select>
+
+              </div>
+
+            )
+          }
 
         </div>
 

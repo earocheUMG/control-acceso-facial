@@ -2952,3 +2952,13 @@ tbody tr:last-child td { border-bottom: 0; }
   .modal-footer button { flex: 1; }
   .control-access-page .topbar { flex-direction: column; align-items: stretch; }
 }
+
+.control-camera-panel select {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+.control-camera-panel select option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
